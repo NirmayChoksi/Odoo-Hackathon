@@ -1,9 +1,12 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Observable } from 'rxjs';
 
-export type ReceiptStatus = 'Draft' | 'Ready' | 'Done';
+export type ReceiptStatus = 'Draft' | 'Waiting' | 'Ready' | 'Done' | 'Cancelled';
 
 export interface ProductLine {
   id: number;
+  product_id: number;
   product: string;
   quantity: number;
 }
@@ -17,80 +20,84 @@ export interface Receipt {
   scheduleDate: string;
   responsible: string;
   status: ReceiptStatus;
+  supplier_id?: number;
+  warehouse_id?: number;
   products: ProductLine[];
 }
 
 @Injectable({ providedIn: 'root' })
 export class ReceiptService {
-  private _receipts = signal<Receipt[]>([
-    {
-      id: '1',
-      reference: 'WH/IN/0001',
-      from: 'Vendor',
-      to: 'WH/Stock1',
-      contact: 'Azure Interior',
-      scheduleDate: '2026-03-15',
-      responsible: 'John Doe',
-      status: 'Ready',
-      products: [{ id: 1, product: '[DESK001] Desk', quantity: 6 }]
-    },
-    {
-      id: '2',
-      reference: 'WH/IN/0002',
-      from: 'Vendor',
-      to: 'WH/Stock1',
-      contact: 'Azure Interior',
-      scheduleDate: '2026-03-16',
-      responsible: 'John Doe',
-      status: 'Ready',
-      products: [{ id: 2, product: '[DESK002] Chair', quantity: 12 }]
-    },
-    {
-      id: '3',
-      reference: 'WH/IN/0003',
-      from: 'Vendor',
-      to: 'WH/Stock2',
-      contact: 'Deco Addict',
-      scheduleDate: '2026-03-18',
-      responsible: 'John Doe',
-      status: 'Draft',
-      products: []
-    }
-  ]);
+  private readonly BASE = 'http://localhost:3000/api';
 
-  readonly receipts = this._receipts.asReadonly();
+  constructor(private http: HttpClient) {}
 
-  getReceipt(id: string): Receipt | undefined {
-    return this._receipts().find(r => r.id === id);
+  private get headers(): HttpHeaders {
+    return new HttpHeaders().set('Authorization', `Bearer ${localStorage.getItem('sf_token') ?? ''}`);
   }
 
-  generateNextReference(): string {
-    const refs = this._receipts().map(r => {
-      const parts = r.reference.split('/');
-      return parseInt(parts[parts.length - 1], 10);
-    }).filter(n => !isNaN(n));
-    
-    const max = refs.length > 0 ? Math.max(...refs) : 0;
-    const next = max + 1;
-    return `WH/IN/${next.toString().padStart(4, '0')}`;
+  mapStatus(s: string): ReceiptStatus {
+    const m: Record<string, ReceiptStatus> = {
+      draft: 'Draft',
+      waiting: 'Waiting',
+      ready: 'Ready',
+      done: 'Done',
+      cancelled: 'Cancelled',
+    };
+    return m[s] ?? 'Draft';
   }
 
-  generateNextId(): string {
-      const ids = this._receipts().map(r => parseInt(r.id, 10)).filter(n => !isNaN(n));
-      const max = ids.length > 0 ? Math.max(...ids) : 0;
-      return (max + 1).toString();
+  mapToFrontend(r: any, suppliers: any[] = [], warehouses: any[] = []): Receipt {
+    const supplier = suppliers.find((s) => Number(s.id) === Number(r.supplier_id));
+    const warehouse = warehouses.find((w) => Number(w.id) === Number(r.warehouse_id));
+    return {
+      id: String(r.id),
+      reference: `WH/IN/${String(r.id).padStart(4, '0')}`,
+      from: supplier?.name ?? `Supplier #${r.supplier_id}`,
+      to: warehouse?.name ?? `Warehouse #${r.warehouse_id}`,
+      contact: supplier?.name ?? `Supplier #${r.supplier_id}`,
+      scheduleDate: r.created_at ? r.created_at.split('T')[0] : '',
+      responsible: r.responsible ?? `User #${r.created_by}`,
+      status: this.mapStatus(r.status),
+      supplier_id: r.supplier_id,
+      warehouse_id: r.warehouse_id,
+      products: (r.items ?? []).map((item: any) => ({
+        id: item.id,
+        product_id: item.product_id,
+        product: item.product_name ?? `Product #${item.product_id}`,
+        quantity: Number(item.quantity),
+      })),
+    };
   }
 
-  saveReceipt(receipt: Receipt): void {
-    const exists = this._receipts().find(r => r.id === receipt.id);
-    if (exists) {
-      this._receipts.update(list => list.map(r => r.id === receipt.id ? receipt : r));
-    } else {
-      this._receipts.update(list => [receipt, ...list]); // Prepend new receipts
-    }
+  list(): Observable<any> {
+    return this.http.get<any>(`${this.BASE}/receipts`, { headers: this.headers });
   }
 
-  deleteReceipt(id: string): void {
-    this._receipts.update(list => list.filter(r => r.id !== id));
+  getById(id: string): Observable<any> {
+    return this.http.get<any>(`${this.BASE}/receipts/${id}`, { headers: this.headers });
+  }
+
+  create(payload: { supplier_id: number; warehouse_id: number }): Observable<any> {
+    return this.http.post<any>(`${this.BASE}/receipts`, payload, { headers: this.headers });
+  }
+
+  addItem(receiptId: string, payload: { product_id: number; quantity: number }): Observable<any> {
+    return this.http.post<any>(`${this.BASE}/receipts/${receiptId}/items`, payload, { headers: this.headers });
+  }
+
+  removeItem(receiptId: string, itemId: number): Observable<any> {
+    return this.http.delete<any>(`${this.BASE}/receipts/${receiptId}/items/${itemId}`, { headers: this.headers });
+  }
+
+  updateStatus(receiptId: string, status: string): Observable<any> {
+    return this.http.patch<any>(`${this.BASE}/receipts/${receiptId}/status`, { status }, { headers: this.headers });
+  }
+
+  validate(receiptId: string): Observable<any> {
+    return this.http.post<any>(`${this.BASE}/receipts/${receiptId}/validate`, {}, { headers: this.headers });
+  }
+
+  cancel(receiptId: string): Observable<any> {
+    return this.http.post<any>(`${this.BASE}/receipts/${receiptId}/cancel`, {}, { headers: this.headers });
   }
 }

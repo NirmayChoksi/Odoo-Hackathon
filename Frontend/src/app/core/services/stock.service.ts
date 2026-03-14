@@ -97,6 +97,10 @@ export class StockService {
   }
 
   /* ── Products ── */
+  getProducts(): Observable<{ success: boolean; data: any[] }> {
+    return this.http.get<any>(`${this.BASE_URL}/products`, { headers: this.getHeaders() });
+  }
+
   createProduct(payload: {
     name: string;
     sku: string;

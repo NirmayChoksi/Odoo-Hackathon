@@ -1,8 +1,12 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 import { ReceiptService, ReceiptStatus, ProductLine } from './services/receipt.service';
+import { ContactsService } from '../../core/services/contacts.service';
+import { SettingsService } from '../../core/services/settings.service';
+import { StockService } from '../../core/services/stock.service';
 
 @Component({
   selector: 'app-receipt-detail',
@@ -10,123 +14,265 @@ import { ReceiptService, ReceiptStatus, ProductLine } from './services/receipt.s
   imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './receipt-detail.component.html',
 })
-export class ReceiptDetailComponent {
-  receiptService = inject(ReceiptService);
-
+export class ReceiptDetailComponent implements OnInit {
   receiptId = signal<string>('new');
-  reference = signal<string>('WH/IN/0001');
+  reference = signal<string>('New Receipt');
   status = signal<ReceiptStatus>('Draft');
   isNew = signal<boolean>(false);
-  
-  // Form fields
+
   receiveFrom = signal<string>('');
+  warehouseTo = signal<string>('');
   scheduleDate = signal<string>('');
   responsible = signal<string>('Unknown');
-  
   products = signal<ProductLine[]>([]);
-  
-  newProductSearch = signal<string>('');
 
-  constructor(private route: ActivatedRoute, private router: Router) {
+  /* New-receipt form: supplier and warehouse selects */
+  selectedSupplierId = signal<number | null>(null);
+  selectedWarehouseId = signal<number | null>(null);
+
+  /* Product-add row: select from loaded products */
+  selectedProductId = signal<number | null>(null);
+  newProductQty = signal<number>(1);
+
+  /* Lookup lists for dropdowns */
+  suppliers = signal<any[]>([]);
+  warehouses = signal<any[]>([]);
+  products_list = signal<any[]>([]);
+
+  loading = signal(true);
+  saving = signal(false);
+  apiError = signal('');
+
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private receiptService: ReceiptService,
+    private contactsService: ContactsService,
+    private settingsService: SettingsService,
+    private stockService: StockService,
+  ) {}
+
+  ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
-    
-    // Auto-fill responsible user from JWT token
+
+    // Pre-fill responsible from JWT
     try {
       const token = localStorage.getItem('sf_token');
       if (token) {
         const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.loginId) {
-          this.responsible.set(payload.loginId);
+        if (payload.loginId) this.responsible.set(payload.loginId);
+      }
+    } catch {}
+
+    // Always load lookup lists
+    forkJoin({
+      suppliers: this.contactsService.getSuppliers(),
+      warehouses: this.settingsService.getWarehouses(),
+      products: this.stockService.getProducts(),
+    }).subscribe({
+      next: ({ suppliers, warehouses, products }) => {
+        this.suppliers.set(suppliers?.data ?? []);
+        this.warehouses.set(warehouses?.data ?? []);
+        this.products_list.set(products?.data ?? []);
+
+        if (id && id !== 'new') {
+          this.loadReceipt(id);
+        } else {
+          this.receiptId.set('new');
+          this.reference.set('New Receipt');
+          this.status.set('Draft');
+          this.isNew.set(true);
+          this.loading.set(false);
         }
-      }
-    } catch (e) {
-      console.error('Failed to parse token for responsible user');
-    }
-
-    if (id && id !== 'new') {
-      const existing = this.receiptService.getReceipt(id);
-      if (existing) {
-        this.receiptId.set(existing.id);
-        this.reference.set(existing.reference);
-        this.status.set(existing.status);
-        this.receiveFrom.set(existing.from);
-        this.scheduleDate.set(existing.scheduleDate);
-        this.responsible.set(existing.responsible);
-        this.products.set(existing.products);
-      }
-    } else {
-      // Generate next reference and ID but do NOT save yet — user must click Save
-      const newId = this.receiptService.generateNextId();
-      this.receiptId.set(newId);
-      this.reference.set(this.receiptService.generateNextReference());
-      this.products.set([]);
-      this.isNew.set(true);
-    }
-  }
-
-  saveState() {
-    this.receiptService.saveReceipt({
-      id: this.receiptId(),
-      reference: this.reference(),
-      from: this.receiveFrom() || 'Vendor',
-      to: 'WH/Stock',
-      contact: this.receiveFrom() || 'Azure Interior',
-      scheduleDate: this.scheduleDate(),
-      responsible: this.responsible(),
-      status: this.status(),
-      products: this.products()
+      },
+      error: () => {
+        this.apiError.set('Failed to load form data.');
+        this.loading.set(false);
+        if (id && id !== 'new') {
+          this.loadReceipt(id);
+        } else {
+          this.isNew.set(true);
+        }
+      },
     });
   }
 
-  /** Called when user explicitly clicks Save on a new receipt */
+  private loadReceipt(id: string): void {
+    this.loading.set(true);
+    this.receiptService.getById(id).subscribe({
+      next: (res) => {
+        if (res.success && res.data) {
+          const r = res.data;
+          const supp = this.suppliers();
+          const ware = this.warehouses();
+          const mapped = this.receiptService.mapToFrontend(r, supp, ware);
+          this.receiptId.set(mapped.id);
+          this.reference.set(mapped.reference);
+          this.status.set(mapped.status);
+          this.receiveFrom.set(mapped.from);
+          this.warehouseTo.set(mapped.to);
+          this.scheduleDate.set(mapped.scheduleDate);
+          this.responsible.set(mapped.responsible);
+          this.products.set(mapped.products);
+          // Resolve product names from the loaded product list
+          const pList = this.products_list();
+          this.products.update((lines) =>
+            lines.map((line) => {
+              if (!line.product_id) return line;
+              const found = pList.find((p: any) => Number(p.id) === Number(line.product_id));
+              return found ? { ...line, product: `[${found.sku ?? found.id}] ${found.name}` } : line;
+            }),
+          );
+        } else {
+          this.apiError.set(res.message ?? 'Receipt not found.');
+        }
+        this.loading.set(false);
+      },
+      error: () => {
+        this.apiError.set('Failed to load receipt.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  /** Create new receipt via API */
   save() {
-    this.saveState();
-    this.isNew.set(false);
-    this.router.navigate(['/operations/receipt', this.receiptId()]);
+    const suppId = this.selectedSupplierId();
+    const wareId = this.selectedWarehouseId();
+    if (!suppId) { this.apiError.set('Please select a supplier.'); return; }
+    if (!wareId) { this.apiError.set('Please select a warehouse.'); return; }
+
+    this.saving.set(true);
+    this.apiError.set('');
+    this.receiptService.create({ supplier_id: suppId, warehouse_id: wareId }).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        if (res.success && res.data) {
+          const newId = String(res.data.id);
+          this.isNew.set(false);
+          this.router.navigate(['/operations/receipt', newId]);
+        } else {
+          this.apiError.set(res.message ?? 'Failed to create receipt.');
+        }
+      },
+      error: () => {
+        this.saving.set(false);
+        this.apiError.set('Failed to create receipt.');
+      },
+    });
   }
 
   markAsToDo() {
-    if (this.status() === 'Draft') {
-      this.status.set('Ready');
-      this.saveState();
-    }
+    const id = this.receiptId();
+    if (id === 'new') return;
+    this.saving.set(true);
+    this.apiError.set('');
+    this.receiptService.updateStatus(id, 'ready').subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        if (res.success) {
+          this.status.set('Ready');
+        } else {
+          this.apiError.set(res.message ?? 'Failed to update status.');
+        }
+      },
+      error: () => {
+        this.saving.set(false);
+        this.apiError.set('Failed to update status.');
+      },
+    });
   }
 
   validate() {
-    if (this.status() === 'Ready') {
-      this.status.set('Done');
-      this.saveState();
-    }
+    const id = this.receiptId();
+    if (id === 'new') return;
+    this.saving.set(true);
+    this.apiError.set('');
+    this.receiptService.validate(id).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        if (res.success) {
+          this.status.set('Done');
+        } else {
+          this.apiError.set(res.message ?? 'Validation failed.');
+        }
+      },
+      error: () => {
+        this.saving.set(false);
+        this.apiError.set('Validation failed.');
+      },
+    });
+  }
+
+  addProduct() {
+    const productId = this.selectedProductId();
+    const qty = this.newProductQty();
+    if (!productId || qty < 1) { this.apiError.set('Please select a product and enter a valid quantity.'); return; }
+
+    const id = this.receiptId();
+    if (id === 'new') { this.apiError.set('Save the receipt first before adding products.'); return; }
+
+    this.saving.set(true);
+    this.apiError.set('');
+    this.receiptService.addItem(id, { product_id: productId, quantity: qty }).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        if (res.success) {
+          const pList = this.products_list();
+          const found = pList.find((p: any) => Number(p.id) === Number(productId));
+          const label = found ? `[${found.sku ?? found.id}] ${found.name}` : `Product #${productId}`;
+          const newLine: ProductLine = {
+            id: res.data?.id ?? Date.now(),
+            product_id: productId,
+            product: label,
+            quantity: qty,
+          };
+          this.products.update((lines) => [...lines, newLine]);
+          this.selectedProductId.set(null);
+          this.newProductQty.set(1);
+          // Auto-advance to Waiting after first item
+          if (this.status() === 'Draft') this.status.set('Waiting');
+        } else {
+          this.apiError.set(res.message ?? 'Failed to add product.');
+        }
+      },
+      error: () => {
+        this.saving.set(false);
+        this.apiError.set('Failed to add product.');
+      },
+    });
+  }
+
+  removeProduct(itemId: number) {
+    const id = this.receiptId();
+    if (id === 'new') { this.products.update((p) => p.filter((l) => l.id !== itemId)); return; }
+    this.receiptService.removeItem(id, itemId).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.products.update((p) => p.filter((l) => l.id !== itemId));
+        } else {
+          this.apiError.set(res.message ?? 'Failed to remove item.');
+        }
+      },
+      error: () => {
+        this.apiError.set('Failed to remove item.');
+      },
+    });
+  }
+
+  cancel() {
+    this.router.navigate(['/operations/receipt']);
   }
 
   printReceipt() {
     window.print();
   }
-  
-  cancel() {
-    this.router.navigate(['/operations/receipt']);
+
+  isDone(): boolean {
+    return this.status() === 'Done' || this.status() === 'Cancelled';
   }
 
-  addProduct() {
-    if (this.newProductSearch().trim()) {
-      const newLine: ProductLine = {
-        id: Date.now(),
-        product: `[PRD${Math.floor(Math.random() * 1000)}] ${this.newProductSearch()}`,
-        quantity: 1
-      };
-      this.products.update(p => [...p, newLine]);
-      this.newProductSearch.set('');
-      this.saveState();
-    }
-  }
-
-  updateQuantity(id: number, quantity: number) {
-    this.products.update(p => p.map(line => line.id === id ? { ...line, quantity } : line));
-    this.saveState();
-  }
-
-  removeProduct(id: number) {
-    this.products.update(p => p.filter(line => line.id !== id));
-    this.saveState();
+  hasOutOfStockItems(): boolean {
+    return false;
   }
 }
