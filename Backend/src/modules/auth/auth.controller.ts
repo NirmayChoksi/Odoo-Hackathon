@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import type { RegisterDto, LoginDto, ForgotPasswordDto, VerifyOtpDto } from './auth.model';
+import type { RegisterDto, LoginDto, ForgotPasswordDto, VerifyOtpDto, ResetPasswordDto } from './auth.model';
 
 export const AuthController = {
   async register(req: Request, res: Response) {
@@ -43,6 +43,17 @@ export const AuthController = {
       res.status(result.success ? 200 : 400).json(result);
     } catch (err) {
       console.error('Verify OTP error:', err);
+      res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
+  },
+
+  async resetPassword(req: Request, res: Response) {
+    try {
+      const dto: ResetPasswordDto = req.body;
+      const result = await AuthService.resetPassword(dto);
+      res.status(result.success ? 200 : 400).json(result);
+    } catch (err) {
+      console.error('Reset password error:', err);
       res.status(500).json({ success: false, message: 'Internal server error.' });
     }
   },

@@ -55,3 +55,5 @@ Thumbs.db
 # Misc
 # --------------------
 *.tsbuildinfo
+
+package-lock.json
