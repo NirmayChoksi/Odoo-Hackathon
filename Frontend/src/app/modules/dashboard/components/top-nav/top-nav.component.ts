@@ -1,6 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { ThemeService } from '../../../../core/services/theme.service';
 
 @Component({
   selector: 'app-top-nav',
@@ -12,11 +13,8 @@ export class TopNavComponent {
   isOperationsOpen = signal(false);
   isMobileMenuOpen = signal(false);
 
-  toggleOperations() {
-    this.isOperationsOpen.update(v => !v);
-  }
+  constructor(public theme: ThemeService) {}
 
-  toggleMobileMenu() {
-    this.isMobileMenuOpen.update(v => !v);
-  }
+  toggleOperations() { this.isOperationsOpen.update(v => !v); }
+  toggleMobileMenu()  { this.isMobileMenuOpen.update(v => !v); }
 }
