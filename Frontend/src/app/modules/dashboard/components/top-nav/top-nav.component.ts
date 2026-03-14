@@ -1,7 +1,8 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { ThemeService } from '../../../../core/services/theme.service';
+import { AuthService, CurrentUser } from '../../../../core/services/auth.service';
 
 @Component({
   selector: 'app-top-nav',
@@ -9,20 +10,33 @@ import { ThemeService } from '../../../../core/services/theme.service';
   imports: [CommonModule, RouterModule],
   templateUrl: './top-nav.component.html',
 })
-export class TopNavComponent {
+export class TopNavComponent implements OnInit {
   isOperationsOpen = signal(false);
   isMobileMenuOpen = signal(false);
   isProfileOpen    = signal(false);
 
-  constructor(public theme: ThemeService) {}
+  currentUser: CurrentUser | null = null;
+  initials = 'U';
+
+  constructor(
+    public theme: ThemeService,
+    private authService: AuthService,
+    private router: Router,
+  ) {}
+
+  ngOnInit(): void {
+    this.currentUser = this.authService.getCurrentUser();
+    if (this.currentUser) {
+      this.initials = this.authService.getInitials(this.currentUser.loginId);
+    }
+  }
 
   toggleOperations() { this.isOperationsOpen.update(v => !v); }
   toggleMobileMenu()  { this.isMobileMenuOpen.update(v => !v); }
   toggleProfile()     { this.isProfileOpen.update(v => !v); }
 
-  logout() {
-    console.log('Logging out...');
-    // Real implementation would clear tokens and redirect to login
-    window.location.href = '/auth/login';
+  logout(): void {
+    this.authService.setLoggedIn(false);
+    this.router.navigate(['/auth/login']);
   }
 }

@@ -14,6 +14,13 @@ export interface RegisterData {
   confirmPassword?: string;
 }
 
+export interface CurrentUser {
+  id: number;
+  loginId: string;
+  email: string;
+  role: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly API_URL = 'http://localhost:3000/api/auth';
@@ -85,5 +92,24 @@ export class AuthService {
 
   checkAuth(): boolean {
     return !!localStorage.getItem('sf_token');
+  }
+
+  getCurrentUser(): CurrentUser | null {
+    const token = localStorage.getItem('sf_token');
+    if (!token) return null;
+    try {
+      const payload = token.split('.')[1];
+      return JSON.parse(atob(payload)) as CurrentUser;
+    } catch {
+      return null;
+    }
+  }
+
+  getInitials(loginId: string): string {
+    const parts = loginId.trim().split(/[\s_\-]+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return loginId.slice(0, 2).toUpperCase();
   }
 }
