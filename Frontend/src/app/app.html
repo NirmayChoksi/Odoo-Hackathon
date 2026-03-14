@@ -1,1 +1,23 @@
 <router-outlet />
+
+<!-- Professional Global Theme Toggle -->
+<div class="fixed top-4 right-4 z-[100]">
+  <button 
+    (click)="toggleDarkMode()" 
+    class="group relative h-10 w-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-yellow-400 shadow-lg shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-700 hover:scale-110 active:scale-95 transition-all duration-200 focus:outline-none"
+    [attr.aria-label]="isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <!-- Sun Icon (shows in dark mode) -->
+    <svg *ngIf="isDarkMode()" class="w-5 h-5 animate-spin-slow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M16.95 17.657l.707.707M7.05 7.05l.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+    </svg>
+    <!-- Moon Icon (shows in light mode) -->
+    <svg *ngIf="!isDarkMode()" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+    </svg>
+
+    <span class="absolute right-full mr-3 px-2 py-1 rounded bg-slate-800 text-white text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+      {{ isDarkMode() ? 'Light Mode' : 'Dark Mode' }}
+    </span>
+  </button>
+</div>
