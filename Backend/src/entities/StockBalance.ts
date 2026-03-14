@@ -1,17 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity("stock_balances")
+@Entity('stock_balances')
 export class StockBalance {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  product_id!: number
+  product_id!: number;
 
   @Column()
-  location_id!: number
+  location_id!: number;
 
-  @Column("decimal", { default: 0 })
-  quantity!: number
+  @Column('decimal', { default: 0 })
+  quantity!: number;
 }

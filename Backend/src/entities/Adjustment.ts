@@ -1,23 +1,22 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity("adjustments")
+@Entity('adjustments')
 export class Adjustment {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  product_id!: number
+  product_id!: number;
 
   @Column()
-  location_id!: number
+  location_id!: number;
 
-  @Column("decimal")
-  counted_quantity!: number
-
-  @Column()
-  reason!: string
+  @Column('decimal')
+  counted_quantity!: number;
 
   @Column()
-  created_by!: number
+  reason!: string;
+
+  @Column()
+  created_by!: number;
 }

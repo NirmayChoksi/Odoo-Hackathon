@@ -1,24 +1,23 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity("deliveries")
+@Entity('deliveries')
 export class Delivery {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  customer_id!: number
+  customer_id!: number;
 
   @Column()
-  warehouse_id!: number
+  warehouse_id!: number;
 
   @Column({
-    type: "enum",
-    enum: ["draft","picking","packing","ready","done","cancelled"],
-    default: "draft"
+    type: 'enum',
+    enum: ['draft', 'picking', 'packing', 'ready', 'done', 'cancelled'],
+    default: 'draft',
   })
-  status!: string
+  status!: string;
 
   @Column()
-  created_by!: number
+  created_by!: number;
 }

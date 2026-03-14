@@ -1,17 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity("receipt_items")
+@Entity('receipt_items')
 export class ReceiptItem {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  receipt_id!: number
+  receipt_id!: number;
 
   @Column()
-  product_id!: number
+  product_id!: number;
 
-  @Column("decimal")
-  quantity!: number
+  @Column('decimal')
+  quantity!: number;
 }

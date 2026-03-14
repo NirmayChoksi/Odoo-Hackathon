@@ -1,28 +1,27 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm"
-import { Category } from "./Category"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Category } from './Category';
 
-@Entity("products")
+@Entity('products')
 export class Product {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  name!: string
+  name!: string;
 
   @Column({ unique: true })
-  sku!: string
+  sku!: string;
 
   @Column()
-  category_id!: number
+  category_id!: number;
 
   @ManyToOne(() => Category)
-  @JoinColumn({ name: "category_id" })
-  category!: Category
+  @JoinColumn({ name: 'category_id' })
+  category!: Category;
 
   @Column()
-  unit!: string
+  unit!: string;
 
-  @Column({ type: "decimal", default: 0 })
-  reorder_level!: number
+  @Column({ type: 'decimal', default: 0 })
+  reorder_level!: number;
 }

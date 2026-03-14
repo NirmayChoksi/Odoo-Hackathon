@@ -1,30 +1,38 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity("users")
+@Entity('users')
 export class User {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
+
+  @Column({ unique: true, length: 12 })
+  login_id!: string;
 
   @Column()
-  name!: string
+  name!: string;
 
   @Column({ unique: true })
-  email!: string
+  email!: string;
 
   @Column()
-  password!: string
+  password!: string;
 
   @Column({
-    type: "enum",
-    enum: ["admin","inventory_manager","warehouse_staff"],
-    default: "warehouse_staff"
+    type: 'enum',
+    enum: ['admin', 'inventory_manager', 'warehouse_staff'],
+    default: 'warehouse_staff',
   })
-  role!: string
+  role!: string;
 
   @Column({ default: true })
-  is_active!: boolean
+  is_active!: boolean;
+
+  @Column({ nullable: true, type: 'varchar', length: 6 })
+  otp!: string | null;
+
+  @Column({ nullable: true, type: 'datetime' })
+  otp_expires_at!: Date | null;
 
   @CreateDateColumn()
-  created_at!: Date
+  created_at!: Date;
 }

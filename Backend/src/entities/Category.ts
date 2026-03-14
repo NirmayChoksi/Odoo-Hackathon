@@ -1,17 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity("categories")
+@Entity('categories')
 export class Category {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  name!: string
+  name!: string;
 
   @Column({ nullable: true })
-  description!: string
+  description!: string;
 
   @CreateDateColumn()
-  created_at!: Date
+  created_at!: Date;
 }

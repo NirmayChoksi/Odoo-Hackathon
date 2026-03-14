@@ -1,27 +1,26 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity("receipts")
+@Entity('receipts')
 export class Receipt {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  supplier_id!: number
+  supplier_id!: number;
 
   @Column()
-  warehouse_id!: number
+  warehouse_id!: number;
 
   @Column({
-    type: "enum",
-    enum: ["draft","waiting","ready","done","cancelled"],
-    default: "draft"
+    type: 'enum',
+    enum: ['draft', 'waiting', 'ready', 'done', 'cancelled'],
+    default: 'draft',
   })
-  status!: string
+  status!: string;
 
   @Column()
-  created_by!: number
+  created_by!: number;
 
   @CreateDateColumn()
-  created_at!: Date
+  created_at!: Date;
 }

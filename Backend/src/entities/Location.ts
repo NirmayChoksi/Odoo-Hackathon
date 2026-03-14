@@ -1,25 +1,24 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from "typeorm"
-import { Warehouse } from "./Warehouse"
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Warehouse } from './Warehouse';
 
-@Entity("locations")
+@Entity('locations')
 export class Location {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  warehouse_id!: number
+  warehouse_id!: number;
 
   @ManyToOne(() => Warehouse)
-  @JoinColumn({ name: "warehouse_id" })
-  warehouse!: Warehouse
+  @JoinColumn({ name: 'warehouse_id' })
+  warehouse!: Warehouse;
 
   @Column()
-  name!: string
+  name!: string;
 
   @Column({
-    type: "enum",
-    enum: ["storage","production","dispatch"]
+    type: 'enum',
+    enum: ['storage', 'production', 'dispatch'],
   })
-  type!: string
+  type!: string;
 }

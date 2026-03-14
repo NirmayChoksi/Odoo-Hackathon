@@ -1,41 +1,34 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity("stock_ledger")
+@Entity('stock_ledger')
 export class StockLedger {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  product_id!: number
+  product_id!: number;
 
   @Column()
-  warehouse_id!: number
+  warehouse_id!: number;
 
   @Column()
-  location_id!: number
+  location_id!: number;
 
   @Column({
-    type: "enum",
-    enum: [
-      "RECEIPT",
-      "DELIVERY",
-      "TRANSFER_IN",
-      "TRANSFER_OUT",
-      "ADJUSTMENT"
-    ]
+    type: 'enum',
+    enum: ['RECEIPT', 'DELIVERY', 'TRANSFER_IN', 'TRANSFER_OUT', 'ADJUSTMENT'],
   })
-  movement_type!: string
+  movement_type!: string;
 
-  @Column("decimal")
-  quantity!: number
-
-  @Column()
-  reference_type!: string
+  @Column('decimal')
+  quantity!: number;
 
   @Column()
-  reference_id!: number
+  reference_type!: string;
+
+  @Column()
+  reference_id!: number;
 
   @CreateDateColumn()
-  created_at!: Date
+  created_at!: Date;
 }

@@ -1,20 +1,19 @@
-import { Entity, PrimaryGeneratedColumn, Column } from "typeorm"
+import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 
-@Entity("suppliers")
+@Entity('suppliers')
 export class Supplier {
-
   @PrimaryGeneratedColumn()
-  id!: number
+  id!: number;
 
   @Column()
-  name!: string
+  name!: string;
 
   @Column({ nullable: true })
-  email!: string
+  email!: string;
 
   @Column({ nullable: true })
-  phone!: string
+  phone!: string;
 
   @Column({ nullable: true })
-  address!: string
+  address!: string;
 }
