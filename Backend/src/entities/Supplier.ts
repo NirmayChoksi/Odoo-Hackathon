@@ -5,15 +5,15 @@ export class Supplier {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   email!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   phone!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   address!: string;
 }

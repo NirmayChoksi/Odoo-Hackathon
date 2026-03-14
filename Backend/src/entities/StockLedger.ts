@@ -5,13 +5,13 @@ export class StockLedger {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   product_id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   warehouse_id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   location_id!: number;
 
   @Column({
@@ -23,10 +23,10 @@ export class StockLedger {
   @Column('decimal')
   quantity!: number;
 
-  @Column()
+  @Column({ type: 'varchar' })
   reference_type!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   reference_id!: number;
 
   @CreateDateColumn()

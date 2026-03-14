@@ -5,10 +5,10 @@ export class Category {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name!: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar',  nullable: true })
   description!: string;
 
   @CreateDateColumn()

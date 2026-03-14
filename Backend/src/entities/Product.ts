@@ -6,20 +6,20 @@ export class Product {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name!: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar',  unique: true })
   sku!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   category_id!: number;
 
   @ManyToOne(() => Category)
   @JoinColumn({ name: 'category_id' })
   category!: Category;
 
-  @Column()
+  @Column({ type: 'varchar' })
   unit!: string;
 
   @Column({ type: 'decimal', default: 0 })

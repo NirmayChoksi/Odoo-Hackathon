@@ -6,14 +6,14 @@ export class Location {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   warehouse_id!: number;
 
   @ManyToOne(() => Warehouse)
   @JoinColumn({ name: 'warehouse_id' })
   warehouse!: Warehouse;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name!: string;
 
   @Column({

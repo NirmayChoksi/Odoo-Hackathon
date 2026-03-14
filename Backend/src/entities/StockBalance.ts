@@ -5,12 +5,12 @@ export class StockBalance {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   product_id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   location_id!: number;
 
-  @Column('decimal', { default: 0 })
+  @Column('decimal', { type: 'int',  default: 0 })
   quantity!: number;
 }

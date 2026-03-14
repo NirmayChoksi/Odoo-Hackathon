@@ -5,10 +5,10 @@ export class Delivery {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   customer_id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   warehouse_id!: number;
 
   @Column({
@@ -18,6 +18,6 @@ export class Delivery {
   })
   status!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   created_by!: number;
 }

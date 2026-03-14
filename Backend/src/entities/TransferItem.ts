@@ -5,10 +5,10 @@ export class TransferItem {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   transfer_id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   product_id!: number;
 
   @Column('decimal')

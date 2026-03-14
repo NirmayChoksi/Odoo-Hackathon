@@ -5,10 +5,10 @@ export class Receipt {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   supplier_id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   warehouse_id!: number;
 
   @Column({
@@ -18,7 +18,7 @@ export class Receipt {
   })
   status!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   created_by!: number;
 
   @CreateDateColumn()

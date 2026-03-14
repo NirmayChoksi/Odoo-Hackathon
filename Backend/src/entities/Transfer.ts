@@ -5,10 +5,10 @@ export class Transfer {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   from_location!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   to_location!: number;
 
   @Column({
@@ -18,6 +18,6 @@ export class Transfer {
   })
   status!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   created_by!: number;
 }

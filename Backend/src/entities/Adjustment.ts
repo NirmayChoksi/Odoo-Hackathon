@@ -5,18 +5,18 @@ export class Adjustment {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   product_id!: number;
 
-  @Column()
+  @Column({ type: 'int' })
   location_id!: number;
 
   @Column('decimal')
   counted_quantity!: number;
 
-  @Column()
+  @Column({ type: 'varchar' })
   reason!: string;
 
-  @Column()
+  @Column({ type: 'int' })
   created_by!: number;
 }

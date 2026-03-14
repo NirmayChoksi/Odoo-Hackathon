@@ -10,13 +10,13 @@ export class User {
   @PrimaryGeneratedColumn()
   id!: number
 
-  @Column({ unique: true, length: 12, name: "login_id" })
+  @Column({ type: "varchar", unique: true, length: 12, name: "login_id" })
   loginId!: string
 
-  @Column({ unique: true })
+  @Column({ type: "varchar", unique: true })
   email!: string
 
-  @Column()
+  @Column({ type: "varchar" })
   password!: string
 
   @Column({
@@ -26,7 +26,7 @@ export class User {
   })
   role!: string
 
-  @Column({ default: true, name: "is_active" })
+  @Column({ type: "boolean", default: true, name: "is_active" })
   isActive!: boolean
 
   @Column({ nullable: true, type: "varchar", length: 255 })

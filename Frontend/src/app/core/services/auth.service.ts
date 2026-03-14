@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import { Observable, of } from 'rxjs';
-import { delay } from 'rxjs/operators';
+import { HttpClient } from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
 
 export interface LoginData {
   loginId: string;
@@ -11,42 +11,74 @@ export interface RegisterData {
   loginId: string;
   email: string;
   password: string;
+  confirmPassword?: string;
 }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly API_URL = 'http://localhost:3000/api/auth';
+  
   private _isLoggedIn = signal(false);
   private _resetEmail = signal('');
+  private _resetToken = signal('');
 
   readonly isLoggedIn = this._isLoggedIn.asReadonly();
   readonly resetEmail = this._resetEmail.asReadonly();
+  readonly resetToken = this._resetToken.asReadonly();
 
-  login(data: LoginData): Observable<{ token: string }> {
-    return of({ token: 'mock-jwt-token-xyz' }).pipe(delay(1200));
+  constructor(private http: HttpClient) {
+    this._isLoggedIn.set(this.checkAuth());
   }
 
-  register(data: RegisterData): Observable<{ message: string }> {
-    return of({ message: 'Registration successful' }).pipe(delay(1200));
+  login(data: LoginData): Observable<any> {
+    return this.http.post<any>(`${this.API_URL}/login`, data).pipe(
+      tap(res => {
+        if (res.success && res.data && res.data.token) {
+          this.setLoggedIn(true, res.data.token);
+        }
+      })
+    );
   }
 
-  forgotPassword(email: string): Observable<{ message: string }> {
-    this._resetEmail.set(email);
-    return of({ message: 'OTP sent to your email' }).pipe(delay(1200));
+  register(data: RegisterData): Observable<any> {
+    // Backend expects confirmPassword, defaulting to password if not provided
+    const payload = {
+      ...data,
+      confirmPassword: data.confirmPassword || data.password
+    };
+    return this.http.post<any>(`${this.API_URL}/register`, payload);
   }
 
-  verifyOtp(otp: string): Observable<{ verified: boolean }> {
-    return of({ verified: true }).pipe(delay(1200));
+  forgotPassword(email: string): Observable<any> {
+    return this.http.post<any>(`${this.API_URL}/forgot-password`, { email }).pipe(
+      tap(() => this._resetEmail.set(email))
+    );
   }
 
-  resetPassword(password: string): Observable<{ message: string }> {
-    return of({ message: 'Password reset successful' }).pipe(delay(1200));
+  verifyOtp(otp: string): Observable<any> {
+    const email = this._resetEmail();
+    return this.http.post<any>(`${this.API_URL}/verify-otp`, { email, otp }).pipe(
+      tap(res => {
+        if (res.success && res.data && res.data.resetToken) {
+          this._resetToken.set(res.data.resetToken);
+        }
+      })
+    );
   }
 
-  setLoggedIn(value: boolean): void {
+  resetPassword(password: string): Observable<any> {
+    return this.http.post<any>(`${this.API_URL}/reset-password`, { 
+      resetToken: this._resetToken(),
+      password,
+      confirmPassword: password 
+    });
+  }
+
+  setLoggedIn(value: boolean, token?: string): void {
     this._isLoggedIn.set(value);
-    if (value) {
-      localStorage.setItem('sf_token', 'mock-jwt-token-xyz');
-    } else {
+    if (value && token) {
+      localStorage.setItem('sf_token', token);
+    } else if (!value) {
       localStorage.removeItem('sf_token');
     }
   }
