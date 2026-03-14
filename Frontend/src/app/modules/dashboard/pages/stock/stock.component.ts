@@ -1,11 +1,14 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { StockService, BalanceRow } from '../../../../core/services/stock.service';
 
 export type StockStatus = 'In Stock' | 'Low Stock' | 'Out of Stock';
 
 export interface StockItem {
   id: string;
+  balanceId: number;
+  productId: number;
   product: string;
   sku: string;
   category: string;
@@ -37,18 +40,21 @@ interface UpdateForm {
   imports: [CommonModule, FormsModule],
   templateUrl: './stock.component.html',
 })
-export class StockComponent {
+export class StockComponent implements OnInit {
+  private svc = inject(StockService);
+
+  /* ── Loading ── */
+  loading = signal(false);
+  saving  = signal(false);
 
   /* ── Filters ── */
-  searchQuery   = signal('');
-  categoryFilter = signal('All');
+  searchQuery     = signal('');
+  categoryFilter  = signal('All');
   warehouseFilter = signal('All');
-  statusFilter  = signal<StockStatus | 'All'>('All');
-  sortField     = signal<keyof StockItem>('product');
-  sortAsc       = signal(true);
-
-  /* ── Filter Dropdown States ── */
-  activeDropdown = signal<'category' | 'warehouse' | 'status' | null>(null);
+  statusFilter    = signal<StockStatus | 'All'>('All');
+  sortField       = signal<keyof StockItem>('product');
+  sortAsc         = signal(true);
+  activeDropdown  = signal<'category' | 'warehouse' | 'status' | null>(null);
 
   /* ── Update drawer ── */
   drawerOpen    = signal(false);
@@ -59,25 +65,18 @@ export class StockComponent {
   updateHistory = signal<{ id: string; product: string; field: string; from: number | string; to: number | string; note: string; date: string }[]>([]);
 
   readonly statuses: (StockStatus | 'All')[] = ['All', 'In Stock', 'Low Stock', 'Out of Stock'];
-  readonly categories = ['All', 'Furniture', 'Electronics', 'Accessories', 'Storage', 'Lighting'];
-  readonly warehouses = ['All', 'Main Warehouse', 'West Coast Store', 'Transit Hub'];
-  readonly units = ['Units', 'kg', 'Litres', 'Boxes'];
+  readonly units = ['Units', 'kg', 'Litres', 'Boxes', 'Pcs'];
+
+  /* ── Reference data for Add Product form ── */
+  apiCategories = signal<{ id: number; name: string }[]>([]);
+  apiLocations  = signal<{ id: number; name: string; warehouse_name: string }[]>([]);
 
   /* ── Stock Data ── */
-  items = signal<StockItem[]>([
-    { id: '1', product: 'Office Desk',        sku: 'FURN-001', category: 'Furniture',    warehouse: 'Main Warehouse',   unitCost: 3000, onHand: 50,  reserved: 5,  freeToUse: 45, reorderPoint: 10, unit: 'Units' },
-    { id: '2', product: 'Wooden Table',        sku: 'FURN-002', category: 'Furniture',    warehouse: 'Main Warehouse',   unitCost: 3000, onHand: 50,  reserved: 0,  freeToUse: 50, reorderPoint: 8,  unit: 'Units' },
-    { id: '3', product: 'Ergonomic Chair',     sku: 'FURN-003', category: 'Furniture',    warehouse: 'West Coast Store', unitCost: 4500, onHand: 12,  reserved: 2,  freeToUse: 10, reorderPoint: 15, unit: 'Units' },
-    { id: '4', product: 'Monitor Stand',       sku: 'ACC-001',  category: 'Accessories',  warehouse: 'Main Warehouse',   unitCost: 800,  onHand: 75,  reserved: 10, freeToUse: 65, reorderPoint: 20, unit: 'Units' },
-    { id: '5', product: 'Laptop Stand',        sku: 'ACC-002',  category: 'Accessories',  warehouse: 'West Coast Store', unitCost: 650,  onHand: 3,   reserved: 1,  freeToUse: 2,  reorderPoint: 10, unit: 'Units' },
-    { id: '6', product: 'USB Hub',             sku: 'ELEC-001', category: 'Electronics',  warehouse: 'Main Warehouse',   unitCost: 1200, onHand: 0,   reserved: 0,  freeToUse: 0,  reorderPoint: 5,  unit: 'Units' },
-    { id: '7', product: 'Cable Tray',          sku: 'ACC-003',  category: 'Accessories',  warehouse: 'Main Warehouse',   unitCost: 350,  onHand: 30,  reserved: 0,  freeToUse: 30, reorderPoint: 5,  unit: 'Units' },
-    { id: '8', product: 'Storage Cabinet',     sku: 'STOR-001', category: 'Storage',      warehouse: 'Main Warehouse',   unitCost: 6500, onHand: 8,   reserved: 2,  freeToUse: 6,  reorderPoint: 3,  unit: 'Units' },
-    { id: '9', product: 'LED Desk Lamp',       sku: 'LGHT-001', category: 'Lighting',     warehouse: 'West Coast Store', unitCost: 950,  onHand: 5,   reserved: 0,  freeToUse: 5,  reorderPoint: 8,  unit: 'Units' },
-    { id:'10', product: 'Wireless Keyboard',   sku: 'ELEC-002', category: 'Electronics',  warehouse: 'Main Warehouse',   unitCost: 2200, onHand: 22,  reserved: 4,  freeToUse: 18, reorderPoint: 5,  unit: 'Units' },
-    { id:'11', product: 'Filing Cabinet',      sku: 'STOR-002', category: 'Storage',      warehouse: 'Transit Hub',      unitCost: 4200, onHand: 0,   reserved: 0,  freeToUse: 0,  reorderPoint: 2,  unit: 'Units' },
-    { id:'12', product: 'Whiteboard',          sku: 'FURN-004', category: 'Furniture',    warehouse: 'Main Warehouse',   unitCost: 1800, onHand: 15,  reserved: 3,  freeToUse: 12, reorderPoint: 5,  unit: 'Units' },
-  ]);
+  items = signal<StockItem[]>([]);
+
+  /* ── Filter lists derived from loaded data ── */
+  categories = computed(() => ['All', ...new Set(this.items().map(i => i.category).filter(Boolean))]);
+  warehouses = computed(() => ['All', ...new Set(this.items().map(i => i.warehouse).filter(Boolean))]);
 
   /* ── Computed filtered + sorted list ── */
   filtered = computed(() => {
@@ -105,29 +104,29 @@ export class StockComponent {
   });
 
   /* ── Summary KPIs ── */
-  totalProducts   = computed(() => this.items().length);
+  totalProducts   = computed(() => new Set(this.items().map(i => i.productId)).size);
   totalValue      = computed(() => this.items().reduce((s, i) => s + i.unitCost * i.onHand, 0));
   lowStockCount   = computed(() => this.items().filter(i => this.stockStatus(i) === 'Low Stock').length);
   outOfStockCount = computed(() => this.items().filter(i => this.stockStatus(i) === 'Out of Stock').length);
 
   /* ── Helpers ── */
   stockStatus(item: StockItem): StockStatus {
-    if (item.onHand === 0) return 'Out of Stock';
+    if (item.onHand === 0)                return 'Out of Stock';
     if (item.onHand <= item.reorderPoint) return 'Low Stock';
     return 'In Stock';
   }
 
   statusBadge(item: StockItem): string {
     const s = this.stockStatus(item);
-    if (s === 'In Stock')     return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
-    if (s === 'Low Stock')    return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+    if (s === 'In Stock')  return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
+    if (s === 'Low Stock') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
     return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300';
   }
 
   freeToUseColor(item: StockItem): string {
     const ratio = item.onHand === 0 ? 0 : item.freeToUse / item.onHand;
-    if (ratio === 0)    return 'text-rose-500 dark:text-rose-400';
-    if (ratio < 0.3)    return 'text-amber-500 dark:text-amber-400';
+    if (ratio === 0)  return 'text-rose-500 dark:text-rose-400';
+    if (ratio < 0.3)  return 'text-amber-500 dark:text-amber-400';
     return 'text-emerald-600 dark:text-emerald-400';
   }
 
@@ -158,26 +157,15 @@ export class StockComponent {
   }
 
   selectFilter(type: 'category' | 'warehouse' | 'status', value: string) {
-    if (type === 'category') this.categoryFilter.set(value);
+    if (type === 'category')  this.categoryFilter.set(value);
     if (type === 'warehouse') this.warehouseFilter.set(value);
-    if (type === 'status') this.statusFilter.set(value as any);
+    if (type === 'status')    this.statusFilter.set(value as any);
     this.activeDropdown.set(null);
   }
 
   /* ── Drawer ── */
   blankForm(): UpdateForm {
-    return {
-      product: '',
-      sku: '',
-      category: 'Furniture',
-      warehouse: 'Main Warehouse',
-      onHand: null,
-      reserved: null,
-      unitCost: null,
-      reorderPoint: null,
-      unit: 'Units',
-      note: ''
-    };
+    return { product: '', sku: '', category: '', warehouse: '', onHand: null, reserved: null, unitCost: null, reorderPoint: null, unit: 'Units', note: '' };
   }
 
   openAdd() {
@@ -185,6 +173,7 @@ export class StockComponent {
     this.editTarget.set(null);
     this.updateForm = this.blankForm();
     this.updateErrors.set({});
+    this.loadRefData();
     this.drawerOpen.set(true);
   }
 
@@ -212,14 +201,17 @@ export class StockComponent {
   validateUpdate(): boolean {
     const e: Partial<Record<keyof UpdateForm, string>> = {};
     if (this.drawerMode() === 'add') {
-      if (!this.updateForm.product.trim()) e.product = 'Product name required';
-      if (!this.updateForm.sku.trim()) e.sku = 'SKU required';
+      if (!this.updateForm.product.trim()) e.product  = 'Product name required';
+      if (!this.updateForm.sku.trim())     e.sku      = 'SKU required';
+      if (!this.updateForm.category)       e.category = 'Category required';
+      if (!this.updateForm.unit.trim())    e.unit     = 'Unit required';
+    } else {
+      if (this.updateForm.onHand == null  || this.updateForm.onHand < 0)   e.onHand      = 'On Hand must be ≥ 0';
+      if (this.updateForm.reserved == null || this.updateForm.reserved < 0) e.reserved    = 'Reserved must be ≥ 0';
+      if ((this.updateForm.reserved ?? 0) > (this.updateForm.onHand ?? 0)) e.reserved    = 'Reserved cannot exceed On Hand';
+      if (this.updateForm.unitCost == null || this.updateForm.unitCost <= 0) e.unitCost   = 'Unit cost must be > 0';
+      if (this.updateForm.reorderPoint == null || this.updateForm.reorderPoint < 0) e.reorderPoint = 'Reorder point must be ≥ 0';
     }
-    if (this.updateForm.onHand == null || this.updateForm.onHand < 0) e.onHand = 'On Hand must be ≥ 0';
-    if (this.updateForm.reserved == null || this.updateForm.reserved < 0) e.reserved = 'Reserved must be ≥ 0';
-    if (this.updateForm.reserved! > this.updateForm.onHand!) e.reserved = 'Reserved cannot exceed On Hand';
-    if (this.updateForm.unitCost == null || this.updateForm.unitCost <= 0) e.unitCost = 'Unit cost must be > 0';
-    if (this.updateForm.reorderPoint == null || this.updateForm.reorderPoint < 0) e.reorderPoint = 'Reorder point must be ≥ 0';
     this.updateErrors.set(e);
     return Object.keys(e).length === 0;
   }
@@ -228,65 +220,111 @@ export class StockComponent {
     if (!this.validateUpdate()) return;
 
     if (this.drawerMode() === 'add') {
-      const newItem: StockItem = {
-        id: crypto.randomUUID(),
-        product: this.updateForm.product,
-        sku: this.updateForm.sku,
-        category: this.updateForm.category,
-        warehouse: this.updateForm.warehouse,
-        onHand: this.updateForm.onHand!,
-        reserved: this.updateForm.reserved!,
-        freeToUse: this.updateForm.onHand! - this.updateForm.reserved!,
-        unitCost: this.updateForm.unitCost!,
-        reorderPoint: this.updateForm.reorderPoint!,
-        unit: this.updateForm.unit
-      };
-      this.items.update(list => [newItem, ...list]);
+      const cat = this.apiCategories().find(c => c.name === this.updateForm.category);
+      const loc = this.apiLocations().find(l => l.name === this.updateForm.warehouse);
 
-      this.updateHistory.update(h => [{
-        id: crypto.randomUUID(),
-        product: newItem.product,
-        field: 'Status',
-        from: 'N/A',
-        to: 'Created',
-        note: this.updateForm.note || 'New product added',
-        date: new Date().toISOString(),
-      }, ...h]);
-    } else {
-      const target = this.editTarget()!;
-      if (this.updateForm.onHand !== target.onHand) {
-        this.updateHistory.update(h => [{
-          id: crypto.randomUUID(),
-          product: target.product,
-          field: 'On Hand',
-          from: target.onHand,
-          to: this.updateForm.onHand!,
-          note: this.updateForm.note,
-          date: new Date().toISOString(),
-        }, ...h]);
+      const payload: any = {
+        name:          this.updateForm.product.trim(),
+        sku:           this.updateForm.sku.trim().toUpperCase(),
+        category_id:   cat?.id,
+        unit:          this.updateForm.unit,
+        reorder_level: this.updateForm.reorderPoint ?? 0,
+        unit_price:    this.updateForm.unitCost ?? 0,
+      };
+      if (this.updateForm.onHand && this.updateForm.onHand > 0 && loc) {
+        payload.initial_stock       = this.updateForm.onHand;
+        payload.initial_location_id = loc.id;
+        payload.initial_reserved    = this.updateForm.reserved ?? 0;
       }
 
-      this.items.update(list => list.map(i => {
-        if (i.id !== target.id) return i;
-        const onHand   = this.updateForm.onHand!;
-        const reserved = this.updateForm.reserved!;
-        return {
-          ...i,
-          product:   this.updateForm.product,
-          sku:       this.updateForm.sku,
-          category:  this.updateForm.category,
-          warehouse: this.updateForm.warehouse,
-          onHand,
-          reserved,
-          freeToUse: onHand - reserved,
-          unitCost:  this.updateForm.unitCost!,
-          reorderPoint: this.updateForm.reorderPoint!,
-          unit:      this.updateForm.unit
-        };
-      }));
+      this.saving.set(true);
+      this.svc.createProduct(payload).subscribe({
+        next: (res: any) => {
+          this.saving.set(false);
+          if (res.success) { this.load(); this.closeDrawer(); }
+          else this.updateErrors.set({ product: res.message });
+        },
+        error: () => this.saving.set(false),
+      });
+
+    } else {
+      const target = this.editTarget()!;
+      this.saving.set(true);
+
+      const productUpdate$ = this.svc.updateProduct(target.productId, {
+        unit_price:    this.updateForm.unitCost    ?? 0,
+        reorder_level: this.updateForm.reorderPoint ?? 0,
+      });
+
+      const balanceUpdate$ = this.svc.updateBalance(target.balanceId, {
+        quantity:          this.updateForm.onHand!,
+        reserved_quantity: this.updateForm.reserved!,
+        note:              this.updateForm.note,
+      });
+
+      let done = 0;
+      const finish = (err?: string) => {
+        done++;
+        if (err) { this.saving.set(false); this.updateErrors.set({ note: err }); return; }
+        if (done === 2) { this.saving.set(false); this.load(); this.closeDrawer(); }
+      };
+
+      productUpdate$.subscribe({ next: () => finish(), error: () => finish('Failed to update product details.') });
+      balanceUpdate$.subscribe({ next: () => finish(), error: () => finish('Failed to update stock quantity.') });
     }
-    this.closeDrawer();
   }
 
   updateErr(f: keyof UpdateForm): string { return this.updateErrors()[f] ?? ''; }
+
+  /* ── Init & Data Loading ── */
+  ngOnInit() {
+    this.load();
+    this.loadRefData();
+  }
+
+  load() {
+    this.loading.set(true);
+    this.svc.getBalances().subscribe({
+      next: (res: any) => {
+        if (res.success) this.items.set(res.data.map((b: BalanceRow) => this.mapBalance(b)));
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
+    });
+  }
+
+  private loadRefData() {
+    this.svc.getCategories().subscribe((res: any) => {
+      if (res.success) this.apiCategories.set(res.data);
+    });
+    this.svc.getLocations().subscribe((res: any) => {
+      if (res.success) {
+        this.apiLocations.set(res.data.map((l: any) => ({
+          id:             Number(l.id),
+          name:           l.name,
+          warehouse_name: l.warehouse_name || l.warehouseId || '',
+        })));
+      }
+    });
+  }
+
+  private mapBalance(b: BalanceRow): StockItem {
+    const onHand   = Number(b.quantity);
+    const reserved = Number(b.reserved_quantity ?? 0);
+    return {
+      id:           `${b.product_id}-${b.location_id}`,
+      balanceId:    b.id,
+      productId:    b.product_id,
+      product:      b.product_name,
+      sku:          b.sku,
+      category:     b.category,
+      warehouse:    b.warehouse_name,
+      unitCost:     Number(b.unit_price ?? 0),
+      onHand,
+      reserved,
+      freeToUse:    onHand - reserved,
+      reorderPoint: Number(b.reorder_level),
+      unit:         b.unit,
+    };
+  }
 }

@@ -46,6 +46,24 @@ export const StockController = {
     }
   },
 
+  async adjustBalance(req: AuthRequest, res: Response) {
+    try {
+      const id = Number(req.params.id);
+      const { quantity, reserved_quantity, note } = req.body;
+      if (isNaN(id)) return res.status(400).json({ success: false, message: 'Invalid balance ID.' });
+      if (quantity == null || quantity < 0) return res.status(400).json({ success: false, message: 'quantity must be ≥ 0.' });
+      const result = await StockService.adjustBalance(id, {
+        quantity: Number(quantity),
+        reserved_quantity: Number(reserved_quantity ?? 0),
+        note,
+      });
+      res.status(result.success ? 200 : 404).json(result);
+    } catch (err) {
+      console.error('Adjust balance error:', err);
+      res.status(500).json({ success: false, message: 'Internal server error.' });
+    }
+  },
+
   async getProductSummary(req: AuthRequest, res: Response) {
     try {
       const result = await StockService.getProductSummary(Number(req.params.productId));

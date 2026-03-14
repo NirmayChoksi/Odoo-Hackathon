@@ -24,4 +24,7 @@ export class Product {
 
   @Column({ type: 'decimal', default: 0 })
   reorder_level!: number;
+
+  @Column({ type: 'decimal', default: 0 })
+  unit_price!: number;
 }

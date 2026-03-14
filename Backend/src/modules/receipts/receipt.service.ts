@@ -86,10 +86,10 @@ export const ReceiptService = {
     const ledgerRepo = AppDataSource.getRepository(StockLedger);
 
     const defaultLocation = await locationRepo.findOne({
-      where: { warehouse_id: receipt.warehouse_id, type: 'storage' },
+      where: { warehouse_id: receipt.warehouse_id, location_type: 'Internal' },
     });
     if (!defaultLocation) {
-      return { success: false, message: 'No storage location found in this warehouse. Please create one first.' };
+      return { success: false, message: 'No Internal location found in this warehouse. Please create one first.' };
     }
 
     for (const item of items) {

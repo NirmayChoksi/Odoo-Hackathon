@@ -1,7 +1,8 @@
 import { LocationRepository } from './location.repository';
 import type { CreateLocationDto, UpdateLocationDto } from './location.model';
+import type { LocationType } from '../../entities/Location';
 
-const VALID_TYPES = ['storage', 'production', 'dispatch'];
+const VALID_TYPES: LocationType[] = ['Internal', 'View', 'Input/Output', 'Virtual'];
 
 export const LocationService = {
   async list(warehouse_id?: number) {
@@ -16,18 +17,36 @@ export const LocationService = {
   },
 
   async create(dto: CreateLocationDto) {
-    if (!dto.warehouse_id) return { success: false, message: 'Warehouse is required.' };
-    if (!dto.name?.trim()) return { success: false, message: 'Name is required.' };
-    if (!VALID_TYPES.includes(dto.type)) return { success: false, message: 'Type must be storage, production, or dispatch.' };
-    const data = await LocationRepository.create({ warehouse_id: dto.warehouse_id, name: dto.name.trim(), type: dto.type });
+    if (!dto.name?.trim())       return { success: false, message: 'Name is required.' };
+    if (!dto.short_code?.trim()) return { success: false, message: 'Short code is required.' };
+    if (!dto.warehouse_id)       return { success: false, message: 'Warehouse is required.' };
+
+    const locationType: LocationType = VALID_TYPES.includes(dto.location_type!)
+      ? dto.location_type!
+      : 'Internal';
+
+    const data = await LocationRepository.create({
+      name:            dto.name.trim(),
+      short_code:      dto.short_code.trim().toUpperCase(),
+      warehouse_id:    dto.warehouse_id,
+      location_type:   locationType,
+      parent_location: dto.parent_location?.trim() ?? '',
+      active:          dto.active ?? true,
+    });
     return { success: true, message: 'Location created.', data };
   },
 
   async update(id: number, dto: UpdateLocationDto) {
     const location = await LocationRepository.findById(id);
     if (!location) return { success: false, message: 'Location not found.' };
-    if (dto.name?.trim()) location.name = dto.name.trim();
-    if (dto.type && VALID_TYPES.includes(dto.type)) location.type = dto.type;
+
+    if (dto.name?.trim())                              location.name            = dto.name.trim();
+    if (dto.short_code?.trim())                        location.short_code      = dto.short_code.trim().toUpperCase();
+    if (dto.warehouse_id)                              location.warehouse_id    = dto.warehouse_id;
+    if (dto.location_type && VALID_TYPES.includes(dto.location_type)) location.location_type = dto.location_type;
+    if (dto.parent_location !== undefined)             location.parent_location = dto.parent_location.trim();
+    if (dto.active !== undefined)                      location.active          = dto.active;
+
     const data = await LocationRepository.save(location);
     return { success: true, message: 'Location updated.', data };
   },

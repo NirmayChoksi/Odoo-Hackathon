@@ -1,9 +1,15 @@
 export interface CreateWarehouseDto {
   name: string;
-  location: string;
+  short_code: string;
+  address: string;
+  type?: 'Local' | 'Transit';
+  active?: boolean;
 }
 
 export interface UpdateWarehouseDto {
   name?: string;
-  location?: string;
+  short_code?: string;
+  address?: string;
+  type?: 'Local' | 'Transit';
+  active?: boolean;
 }

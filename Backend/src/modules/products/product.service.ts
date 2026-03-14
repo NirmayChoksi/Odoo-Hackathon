@@ -31,6 +31,7 @@ export const ProductService = {
       category_id: dto.category_id,
       unit: dto.unit.trim(),
       reorder_level: dto.reorder_level ?? 0,
+      unit_price: dto.unit_price ?? 0,
     });
 
     if (dto.initial_stock && dto.initial_stock > 0 && dto.initial_location_id) {
@@ -38,6 +39,7 @@ export const ProductService = {
         product_id: product.id,
         location_id: dto.initial_location_id,
         quantity: dto.initial_stock,
+        reserved_quantity: dto.initial_reserved ?? 0,
       });
 
       const locationRepo = AppDataSource.getRepository(Location);
@@ -74,6 +76,7 @@ export const ProductService = {
     if (dto.category_id) product.category_id = dto.category_id;
     if (dto.unit?.trim()) product.unit = dto.unit.trim();
     if (dto.reorder_level !== undefined) product.reorder_level = dto.reorder_level;
+    if (dto.unit_price    !== undefined) product.unit_price    = dto.unit_price;
 
     const data = await ProductRepository.save(product);
     return { success: true, message: 'Product updated.', data };

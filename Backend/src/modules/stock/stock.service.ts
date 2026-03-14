@@ -34,16 +34,33 @@ export const StockService = {
   async getBalances(filters: { product_id?: number; location_id?: number; warehouse_id?: number }) {
     const qb = AppDataSource.getRepository(StockBalance)
       .createQueryBuilder('sb')
-      .orderBy('sb.product_id', 'ASC');
+      .innerJoin('products',   'p',   'p.id   = sb.product_id')
+      .innerJoin('categories', 'cat', 'cat.id = p.category_id')
+      .innerJoin('locations',  'loc', 'loc.id = sb.location_id')
+      .innerJoin('warehouses', 'wh',  'wh.id  = loc.warehouse_id')
+      .select([
+        'sb.id                 AS id',
+        'sb.product_id         AS product_id',
+        'sb.location_id        AS location_id',
+        'sb.quantity           AS quantity',
+        'sb.reserved_quantity  AS reserved_quantity',
+        'p.name                AS product_name',
+        'p.sku                 AS sku',
+        'p.unit                AS unit',
+        'p.reorder_level       AS reorder_level',
+        'p.unit_price          AS unit_price',
+        'cat.name              AS category',
+        'loc.name              AS location_name',
+        'wh.id                 AS warehouse_id',
+        'wh.name               AS warehouse_name',
+      ])
+      .orderBy('p.name', 'ASC');
 
-    if (filters.product_id) qb.andWhere('sb.product_id = :pid', { pid: filters.product_id });
+    if (filters.product_id)  qb.andWhere('sb.product_id  = :pid', { pid: filters.product_id });
     if (filters.location_id) qb.andWhere('sb.location_id = :lid', { lid: filters.location_id });
-    if (filters.warehouse_id) {
-      qb.innerJoin('locations', 'loc', 'loc.id = sb.location_id')
-        .andWhere('loc.warehouse_id = :wid', { wid: filters.warehouse_id });
-    }
+    if (filters.warehouse_id) qb.andWhere('wh.id          = :wid', { wid: filters.warehouse_id });
 
-    const data = await qb.getMany();
+    const data = await qb.getRawMany();
     return { success: true, data };
   },
 
@@ -70,6 +87,34 @@ export const StockService = {
     }
 
     return { success: true, data: result, count: result.length };
+  },
+
+  async adjustBalance(balanceId: number, dto: { quantity: number; reserved_quantity: number; note?: string }) {
+    const repo = AppDataSource.getRepository(StockBalance);
+    const balance = await repo.findOne({ where: { id: balanceId } });
+    if (!balance) return { success: false, message: 'Stock balance record not found.' };
+
+    const oldQty = Number(balance.quantity);
+    const diff   = dto.quantity - oldQty;
+
+    balance.quantity          = dto.quantity;
+    balance.reserved_quantity = dto.reserved_quantity;
+    await repo.save(balance);
+
+    if (diff !== 0) {
+      const ledgerRepo = AppDataSource.getRepository(StockLedger);
+      await ledgerRepo.save({
+        product_id:     balance.product_id,
+        warehouse_id:   null as any,
+        location_id:    balance.location_id,
+        movement_type:  diff > 0 ? 'ADJUSTMENT' : 'ADJUSTMENT',
+        quantity:       Math.abs(diff),
+        reference_type: 'MANUAL_ADJUSTMENT',
+        reference_id:   balanceId,
+      });
+    }
+
+    return { success: true, message: 'Stock balance updated.' };
   },
 
   async getProductSummary(product_id: number) {

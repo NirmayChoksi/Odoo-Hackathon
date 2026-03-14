@@ -11,6 +11,9 @@ export class StockBalance {
   @Column({ type: 'int' })
   location_id!: number;
 
-  @Column({ type: 'int',  default: 0 })
+  @Column({ type: 'int', default: 0 })
   quantity!: number;
+
+  @Column({ type: 'int', default: 0 })
+  reserved_quantity!: number;
 }

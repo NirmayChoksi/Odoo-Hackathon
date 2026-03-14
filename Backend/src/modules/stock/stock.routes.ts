@@ -7,6 +7,7 @@ router.use(authenticate as any);
 
 router.get('/ledger', StockController.getLedger);
 router.get('/balances', StockController.getBalances);
+router.put('/balances/:id', StockController.adjustBalance);
 router.get('/low-stock', StockController.getLowStock);
 router.get('/products/:productId/summary', StockController.getProductSummary);
 

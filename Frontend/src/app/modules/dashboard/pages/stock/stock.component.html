@@ -5,7 +5,7 @@
     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time stock levels and warehouse distribution</p>
   </div>
   <div class="flex items-center gap-3">
-    <button (click)="openUpdate(items()[0])" class="hidden sm:inline-flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+    <button (click)="items().length && openUpdate(items()[0])" class="hidden sm:inline-flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 text-sm font-semibold px-4 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
       </svg>
@@ -116,7 +116,7 @@
       </button>
       @if (activeDropdown() === 'category') {
         <div class="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
-          @for (c of categories; track c) {
+          @for (c of categories(); track c) {
             <button (click)="selectFilter('category', c)" 
               class="w-full text-left px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors"
               [ngClass]="categoryFilter() === c ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : ''">
@@ -139,7 +139,7 @@
       </button>
       @if (activeDropdown() === 'warehouse') {
         <div class="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden py-1 animate-in fade-in slide-in-from-top-2 duration-200">
-          @for (w of warehouses; track w) {
+          @for (w of warehouses(); track w) {
             <button (click)="selectFilter('warehouse', w)" 
               class="w-full text-left px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 transition-colors"
               [ngClass]="warehouseFilter() === w ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : ''">
@@ -340,19 +340,37 @@
             <div class="col-span-1">
               <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Category</label>
               <select [(ngModel)]="updateForm.category"
-                class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/30 dark:text-white transition-all">
-                @for (c of categories.slice(1); track c) {
-                  <option [value]="c" class="bg-white dark:bg-slate-900">{{ c }}</option>
+                class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/30 dark:text-white transition-all"
+                [ngClass]="updateErr('category') ? 'border-rose-400' : ''">
+                <option value="" disabled>Select category</option>
+                @if (drawerMode() === 'add') {
+                  @for (c of apiCategories(); track c.id) {
+                    <option [value]="c.name" class="bg-white dark:bg-slate-900">{{ c.name }}</option>
+                  }
+                } @else {
+                  @for (c of categories().slice(1); track c) {
+                    <option [value]="c" class="bg-white dark:bg-slate-900">{{ c }}</option>
+                  }
                 }
               </select>
+              @if (updateErr('category')) { <p class="mt-1 text-[10px] font-bold text-rose-500 uppercase">{{ updateErr('category') }}</p> }
             </div>
 
             <div class="col-span-1">
-              <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Warehouse</label>
+              <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                {{ drawerMode() === 'add' ? 'Location' : 'Warehouse' }}
+              </label>
               <select [(ngModel)]="updateForm.warehouse"
                 class="w-full px-4 py-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500/30 dark:text-white transition-all">
-                @for (w of warehouses.slice(1); track w) {
-                  <option [value]="w" class="bg-white dark:bg-slate-900">{{ w }}</option>
+                @if (drawerMode() === 'add') {
+                  <option value="" disabled>Select location (optional)</option>
+                  @for (l of apiLocations(); track l.id) {
+                    <option [value]="l.name" class="bg-white dark:bg-slate-900">{{ l.name }}</option>
+                  }
+                } @else {
+                  @for (w of warehouses().slice(1); track w) {
+                    <option [value]="w" class="bg-white dark:bg-slate-900">{{ w }}</option>
+                  }
                 }
               </select>
             </div>
@@ -437,9 +455,9 @@
 
     <!-- Footer -->
     <div class="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 flex gap-3">
-      <button (click)="saveUpdate()"
-        class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-600/20 transition-all">
-        {{ drawerMode() === 'add' ? 'Save Product' : 'Apply Update' }}
+      <button (click)="saveUpdate()" [disabled]="saving()"
+        class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-600/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+        @if (saving()) { Saving… } @else { {{ drawerMode() === 'add' ? 'Save Product' : 'Apply Update' }} }
       </button>
       <button (click)="closeDrawer()"
         class="flex-1 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-3 rounded-xl border border-slate-200 dark:border-slate-700 transition-all">

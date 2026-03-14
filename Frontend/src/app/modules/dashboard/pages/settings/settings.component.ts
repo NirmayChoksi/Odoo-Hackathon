@@ -1,29 +1,9 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { SettingsService, Warehouse, Location, LocType, Category } from '../../../../core/services/settings.service';
 
-/* ─── Models ─── */
-export type LocType = 'Internal' | 'View' | 'Input/Output' | 'Virtual';
 
-export interface Warehouse {
-  id: string;
-  name: string;
-  shortCode: string;
-  address: string;
-  type: 'Local' | 'Transit';
-  active: boolean;
-  createdAt: string;
-}
-
-export interface Location {
-  id: string;
-  name: string;
-  shortCode: string;
-  warehouseId: string;
-  locationType: LocType;
-  parentLocation: string;
-  active: boolean;
-}
 
 /* ─── Form models ─── */
 type WarehouseForm = Omit<Warehouse, 'id' | 'createdAt'>;
@@ -35,9 +15,11 @@ type LocationForm  = Omit<Location, 'id'>;
   imports: [CommonModule, FormsModule],
   templateUrl: './settings.component.html',
 })
-export class SettingsComponent {
+export class SettingsComponent implements OnInit {
 
-  activeTab = signal<'warehouse' | 'location'>('warehouse');
+  private svc = inject(SettingsService);
+
+  activeTab = signal<'warehouse' | 'location' | 'category'>('warehouse');
 
   /* ═══ Warehouse state ═══ */
   warehouseDrawerOpen  = signal(false);
@@ -45,11 +27,7 @@ export class SettingsComponent {
   warehouseFormErrors  = signal<Partial<Record<keyof WarehouseForm, string>>>({});
   warehouseDeleteConfirm = signal<string | null>(null);
 
-  warehouses = signal<Warehouse[]>([
-    { id: 'wh1', name: 'Main Warehouse',    shortCode: 'WH',  address: '42 Industrial Blvd, Mumbai 400001', type: 'Local',   active: true,  createdAt: '2024-01-15' },
-    { id: 'wh2', name: 'West Coast Store',  shortCode: 'WCS', address: '18 Harbour Rd, Pune 411001',        type: 'Local',   active: true,  createdAt: '2024-03-20' },
-    { id: 'wh3', name: 'Transit Hub',       shortCode: 'TH',  address: '5 Gateway Complex, Navi Mumbai',    type: 'Transit', active: false, createdAt: '2024-06-01' },
-  ]);
+  warehouses = signal<Warehouse[]>([]);
 
   warehouseForm: WarehouseForm = this.blankWarehouseForm();
 
@@ -86,34 +64,50 @@ export class SettingsComponent {
   saveWarehouse() {
     if (!this.validateWarehouse()) return;
     const editId = this.warehouseEditTarget();
+    
+    // Convert form to snake_case for backend
+    const payload = {
+      name: this.warehouseForm.name,
+      short_code: this.warehouseForm.shortCode.toUpperCase(),
+      address: this.warehouseForm.address,
+      type: this.warehouseForm.type,
+      active: this.warehouseForm.active
+    };
+
     if (editId) {
-      this.warehouses.update(list => list.map(w =>
-        w.id === editId ? { ...w, ...this.warehouseForm } : w
-      ));
+      this.svc.updateWarehouse(editId, payload).subscribe((res: any) => {
+        if(res.success) {
+          this.loadWarehouses();
+          this.warehouseDrawerOpen.set(false);
+        }
+      });
     } else {
-      const newWh: Warehouse = {
-        id: crypto.randomUUID(),
-        ...this.warehouseForm,
-        shortCode: this.warehouseForm.shortCode.toUpperCase(),
-        createdAt: new Date().toISOString().split('T')[0],
-      };
-      this.warehouses.update(list => [newWh, ...list]);
+      this.svc.createWarehouse(payload).subscribe((res: any) => {
+        if(res.success) {
+          this.loadWarehouses();
+          this.warehouseDrawerOpen.set(false);
+        }
+      });
     }
-    this.warehouseDrawerOpen.set(false);
   }
 
   confirmDeleteWarehouse(id: string) { this.warehouseDeleteConfirm.set(id); }
   cancelDeleteWarehouse()            { this.warehouseDeleteConfirm.set(null); }
 
   deleteWarehouse(id: string) {
-    this.warehouses.update(list => list.filter(w => w.id !== id));
-    // also remove linked locations
-    this.locations.update(list => list.filter(l => l.warehouseId !== id));
-    this.warehouseDeleteConfirm.set(null);
+    this.svc.deleteWarehouse(id).subscribe((res: any) => {
+      if(res.success) {
+        this.loadWarehouses();
+        this.loadLocations(); // also refresh linked locations
+        this.warehouseDeleteConfirm.set(null);
+      }
+    });
   }
 
   toggleWarehouseActive(wh: Warehouse) {
-    this.warehouses.update(list => list.map(w => w.id === wh.id ? { ...w, active: !w.active } : w));
+    this.svc.updateWarehouse(wh.id, { active: !wh.active }).subscribe((res: any) => {
+      if(res.success) this.loadWarehouses();
+    });
   }
 
   warehouseErr(f: keyof WarehouseForm): string { return this.warehouseFormErrors()[f] ?? ''; }
@@ -125,13 +119,7 @@ export class SettingsComponent {
   locationDeleteConfirm = signal<string | null>(null);
   locationSearch       = signal('');
 
-  locations = signal<Location[]>([
-    { id: 'loc1', name: 'Main Stock',    shortCode: 'STOCK1',   warehouseId: 'wh1', locationType: 'Internal', parentLocation: 'WH/Input',  active: true  },
-    { id: 'loc2', name: 'Packing Zone',  shortCode: 'PACK',     warehouseId: 'wh1', locationType: 'Internal', parentLocation: 'WH/Output', active: true  },
-    { id: 'loc3', name: 'Quality Check', shortCode: 'QC',       warehouseId: 'wh1', locationType: 'View',     parentLocation: 'WH/Input',  active: true  },
-    { id: 'loc4', name: 'West Stock',    shortCode: 'WSTOCK1',  warehouseId: 'wh2', locationType: 'Internal', parentLocation: 'WCS/Input', active: true  },
-    { id: 'loc5', name: 'Virtual Loc',   shortCode: 'VIRT',     warehouseId: 'wh1', locationType: 'Virtual',  parentLocation: '',          active: false },
-  ]);
+  locations = signal<Location[]>([]);
 
   locationForm: LocationForm = this.blankLocationForm();
 
@@ -180,19 +168,109 @@ export class SettingsComponent {
   saveLocation() {
     if (!this.validateLocation()) return;
     const editId = this.locationEditTarget();
+    
+    const payload = {
+      name: this.locationForm.name,
+      short_code: this.locationForm.shortCode.toUpperCase(),
+      warehouse_id: this.locationForm.warehouseId,
+      location_type: this.locationForm.locationType,
+      parent_location: this.locationForm.parentLocation,
+      active: this.locationForm.active
+    };
+
     if (editId) {
-      this.locations.update(list => list.map(l => l.id === editId ? { ...l, ...this.locationForm } : l ));
+      this.svc.updateLocation(editId, payload).subscribe((res: any) => {
+        if(res.success) {
+          this.loadLocations();
+          this.locationDrawerOpen.set(false);
+        }
+      });
     } else {
-      this.locations.update(list => [{ id: crypto.randomUUID(), ...this.locationForm, shortCode: this.locationForm.shortCode.toUpperCase() }, ...list]);
+      this.svc.createLocation(payload).subscribe((res: any) => {
+        if(res.success) {
+          this.loadLocations();
+          this.locationDrawerOpen.set(false);
+        }
+      });
     }
-    this.locationDrawerOpen.set(false);
   }
 
   confirmDeleteLocation(id: string) { this.locationDeleteConfirm.set(id); }
   cancelDeleteLocation()            { this.locationDeleteConfirm.set(null); }
-  deleteLocation(id: string)        { this.locations.update(l => l.filter(x => x.id !== id)); this.locationDeleteConfirm.set(null); }
-  toggleLocationActive(loc: Location) { this.locations.update(list => list.map(l => l.id === loc.id ? { ...l, active: !l.active } : l)); }
+  
+  deleteLocation(id: string) { 
+    this.svc.deleteLocation(id).subscribe((res: any) => {
+      if(res.success) {
+        this.loadLocations();
+        this.locationDeleteConfirm.set(null);
+      }
+    });
+  }
+
+  toggleLocationActive(loc: Location) { 
+    this.svc.updateLocation(loc.id, { active: !loc.active }).subscribe((res: any) => {
+      if(res.success) this.loadLocations();
+    });
+  }
   locationErr(f: keyof LocationForm): string { return this.locationFormErrors()[f] ?? ''; }
+
+  /* ═══ Category state ═══ */
+  categoryDrawerOpen   = signal(false);
+  categoryEditTarget   = signal<string | null>(null);
+  categoryFormErrors   = signal<{ name?: string }>({});
+  categoryDeleteConfirm = signal<string | null>(null);
+
+  categories = signal<Category[]>([]);
+
+  categoryForm = { name: '', description: '' };
+
+  openAddCategory() {
+    this.categoryForm = { name: '', description: '' };
+    this.categoryEditTarget.set(null);
+    this.categoryFormErrors.set({});
+    this.categoryDrawerOpen.set(true);
+  }
+
+  openEditCategory(cat: Category) {
+    this.categoryForm = { name: cat.name, description: cat.description || '' };
+    this.categoryEditTarget.set(cat.id);
+    this.categoryFormErrors.set({});
+    this.categoryDrawerOpen.set(true);
+  }
+
+  validateCategory(): boolean {
+    const e: { name?: string } = {};
+    if (!this.categoryForm.name.trim()) e.name = 'Category name is required';
+    this.categoryFormErrors.set(e);
+    return Object.keys(e).length === 0;
+  }
+
+  saveCategory() {
+    if (!this.validateCategory()) return;
+    const payload = { name: this.categoryForm.name.trim(), description: this.categoryForm.description.trim() };
+    const editId = this.categoryEditTarget();
+    if (editId) {
+      this.svc.updateCategory(editId, payload).subscribe((res: any) => {
+        if (res.success) { this.loadCategories(); this.categoryDrawerOpen.set(false); }
+      });
+    } else {
+      this.svc.createCategory(payload).subscribe((res: any) => {
+        if (res.success) { this.loadCategories(); this.categoryDrawerOpen.set(false); }
+        else this.categoryFormErrors.set({ name: res.message });
+      });
+    }
+  }
+
+  confirmDeleteCategory(id: string) { this.categoryDeleteConfirm.set(id); }
+  cancelDeleteCategory()            { this.categoryDeleteConfirm.set(null); }
+
+  deleteCategory(id: string) {
+    this.svc.deleteCategory(id).subscribe((res: any) => {
+      if (res.success) { this.loadCategories(); this.categoryDeleteConfirm.set(null); }
+    });
+  }
+
+  categoryErr(f: keyof { name: string }): string { return this.categoryFormErrors()[f] ?? ''; }
 
   /* ═══ Shared helpers ═══ */
   warehouseName(id: string): string {
@@ -220,4 +298,46 @@ export class SettingsComponent {
   }
 
   onLocSearch(e: Event) { this.locationSearch.set((e.target as HTMLInputElement).value); }
+  
+  /* ═══ Data Init ═══ */
+  ngOnInit() {
+    this.loadWarehouses();
+    this.loadLocations();
+    this.loadCategories();
+  }
+
+  loadWarehouses() {
+    this.svc.getWarehouses().subscribe((res: any) => {
+      if(res.success) {
+        // Map backend snake_case to frontend camelCase expectations
+        const mapped = res.data.map((w: any) => ({
+          ...w,
+          shortCode: w.short_code,
+          createdAt: w.created_at || new Date().toISOString()
+        }));
+        this.warehouses.set(mapped);
+      }
+    });
+  }
+
+  loadLocations() {
+    this.svc.getLocations().subscribe((res: any) => {
+      if(res.success) {
+        const mapped = res.data.map((l: any) => ({
+          ...l,
+          shortCode: l.short_code,
+          warehouseId: l.warehouse_id,
+          locationType: (l.location_type || 'Internal') as LocType,
+          parentLocation: l.parent_location || ''
+        }));
+        this.locations.set(mapped);
+      }
+    });
+  }
+
+  loadCategories() {
+    this.svc.getCategories().subscribe((res: any) => {
+      if (res.success) this.categories.set(res.data);
+    });
+  }
 }

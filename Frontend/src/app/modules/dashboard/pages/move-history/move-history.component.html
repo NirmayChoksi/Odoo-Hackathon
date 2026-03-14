@@ -263,53 +263,79 @@
           class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all" />
       </div>
 
-      <!-- Contact -->
-      <div>
-        <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Contact / Vendor <span class="text-rose-500">*</span></label>
-        <input type="text" [(ngModel)]="newMove.contact" placeholder="e.g. Azure Interior"
-          class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all placeholder:text-slate-400"
-          [ngClass]="err('contact') ? 'border-rose-400 focus:ring-rose-400/30' : ''" />
-        @if (err('contact')) {
-          <p class="mt-1 text-xs text-rose-500">{{ err('contact') }}</p>
-        }
-      </div>
+      <!-- Warehouse -->
+      @if (newMove.type !== 'INTERNAL') {
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Warehouse <span class="text-rose-500">*</span></label>
+          <select [(ngModel)]="newMove.warehouse"
+            class="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+            [ngClass]="err('warehouse') ? 'border-rose-400 focus:ring-rose-400/30' : ''">
+            <option [ngValue]="null">Select Warehouse</option>
+            @for (w of warehouses(); track w.id) {
+              <option [ngValue]="w.id">{{ w.name }}</option>
+            }
+          </select>
+          @if (err('warehouse')) { <p class="mt-1 text-xs text-rose-500">{{ err('warehouse') }}</p> }
+        </div>
+
+        <!-- Contact (Supplier/Customer) -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">{{ newMove.type === 'IN' ? 'Supplier' : 'Customer' }} <span class="text-rose-500">*</span></label>
+          <select [(ngModel)]="newMove.contact"
+            class="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+            [ngClass]="err('contact') ? 'border-rose-400 focus:ring-rose-400/30' : ''">
+            <option [ngValue]="null">Select {{ newMove.type === 'IN' ? 'Supplier' : 'Customer' }}</option>
+            @for (c of (newMove.type === 'IN' ? suppliers() : customers()); track c.id) {
+              <option [ngValue]="c.id">{{ c.name }}</option>
+            }
+          </select>
+          @if (err('contact')) { <p class="mt-1 text-xs text-rose-500">{{ err('contact') }}</p> }
+        </div>
+      }
 
       <!-- Product -->
       <div>
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Product <span class="text-rose-500">*</span></label>
-        <input type="text" [(ngModel)]="newMove.product" placeholder="e.g. Office Chair"
-          class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all placeholder:text-slate-400"
-          [ngClass]="err('product') ? 'border-rose-400 focus:ring-rose-400/30' : ''" />
-        @if (err('product')) {
-          <p class="mt-1 text-xs text-rose-500">{{ err('product') }}</p>
-        }
+        <select [(ngModel)]="newMove.product"
+          class="w-full px-3.5 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+          [ngClass]="err('product') ? 'border-rose-400 focus:ring-rose-400/30' : ''">
+          <option [ngValue]="null">Select Product</option>
+          @for (p of products(); track p.id) {
+            <option [ngValue]="p.id">{{ p.name }}</option>
+          }
+        </select>
+        @if (err('product')) { <p class="mt-1 text-xs text-rose-500">{{ err('product') }}</p> }
       </div>
 
-      <!-- From / To -->
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">From</label>
-          <select [(ngModel)]="newMove.from"
-            class="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all">
-            @for (loc of locations; track loc) {
-              <option [value]="loc">{{ loc }}</option>
-            }
-          </select>
+      <!-- From / To (Internal Only) -->
+      @if (newMove.type === 'INTERNAL') {
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">From <span class="text-rose-500">*</span></label>
+            <select [(ngModel)]="newMove.from"
+              class="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+              [ngClass]="err('from') ? 'border-rose-400 focus:ring-rose-400/30' : ''">
+              <option [ngValue]="null">Select Location</option>
+              @for (loc of locations(); track loc.id) {
+                <option [ngValue]="loc.id">{{ loc.name }}</option>
+              }
+            </select>
+            @if (err('from')) { <p class="mt-1 text-xs text-rose-500">{{ err('from') }}</p> }
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">To <span class="text-rose-500">*</span></label>
+            <select [(ngModel)]="newMove.to"
+              class="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+              [ngClass]="err('to') ? 'border-rose-400 focus:ring-rose-400/30' : ''">
+              <option [ngValue]="null">Select Location</option>
+              @for (loc of locations(); track loc.id) {
+                <option [ngValue]="loc.id">{{ loc.name }}</option>
+              }
+            </select>
+            @if (err('to')) { <p class="mt-1 text-xs text-rose-500">{{ err('to') }}</p> }
+          </div>
         </div>
-        <div>
-          <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5 uppercase tracking-wider">To</label>
-          <select [(ngModel)]="newMove.to"
-            class="w-full px-3 py-2.5 text-sm bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
-            [ngClass]="err('to') ? 'border-rose-400 focus:ring-rose-400/30' : ''">
-            @for (loc of locations; track loc) {
-              <option [value]="loc">{{ loc }}</option>
-            }
-          </select>
-          @if (err('to')) {
-            <p class="mt-1 text-xs text-rose-500">{{ err('to') }}</p>
-          }
-        </div>
-      </div>
+      }
 
       <!-- Quantity + Unit -->
       <div>
@@ -323,12 +349,8 @@
             @for (u of units; track u) { <option [value]="u">{{ u }}</option> }
           </select>
         </div>
-        @if (err('quantity')) {
-          <p class="mt-1 text-xs text-rose-500">{{ err('quantity') }}</p>
-        }
+        @if (err('quantity')) { <p class="mt-1 text-xs text-rose-500">{{ err('quantity') }}</p> }
       </div>
-
-      <!-- Status -->
       <div>
         <label class="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-wider">Initial Status</label>
         <div class="flex flex-wrap gap-2">

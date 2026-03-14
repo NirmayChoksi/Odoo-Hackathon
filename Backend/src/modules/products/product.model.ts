@@ -4,8 +4,10 @@ export interface CreateProductDto {
   category_id: number;
   unit: string;
   reorder_level?: number;
+  unit_price?: number;
   initial_stock?: number;
   initial_location_id?: number;
+  initial_reserved?: number;
 }
 
 export interface UpdateProductDto {
@@ -14,6 +16,7 @@ export interface UpdateProductDto {
   category_id?: number;
   unit?: string;
   reorder_level?: number;
+  unit_price?: number;
 }
 
 export interface ProductFilters {

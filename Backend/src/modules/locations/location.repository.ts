@@ -11,9 +11,6 @@ export const LocationRepository = {
   findById(id: number) {
     return repo().findOne({ where: { id }, relations: ['warehouse'] });
   },
-  findFirstStorageInWarehouse(warehouse_id: number) {
-    return repo().findOne({ where: { warehouse_id, type: 'storage' } });
-  },
   findByWarehouse(warehouse_id: number) {
     return repo().find({ where: { warehouse_id } });
   },

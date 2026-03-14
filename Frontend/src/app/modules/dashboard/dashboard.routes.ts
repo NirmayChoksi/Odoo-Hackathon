@@ -27,13 +27,20 @@ export const DASHBOARD_ROUTES: Routes = [
             (m) => m.SettingsComponent
           ),
       },
-      // {
-      //   path: 'stock',
-      //   loadComponent: () =>
-      //     import('./pages/stock/stock.component').then(
-      //       (m) => m.StockComponent
-      //     ),
-      // },
+      {
+        path: 'contacts',
+        loadComponent: () =>
+          import('./pages/contacts/contacts.component').then(
+            (m) => m.ContactsComponent
+          ),
+      },
+      {
+        path: 'stock',
+        loadComponent: () =>
+          import('./pages/stock/stock.component').then(
+            (m) => m.StockComponent
+          ),
+      },
     ],
   },
 ];

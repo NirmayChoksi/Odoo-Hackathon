@@ -1,12 +1,12 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { StockService, LedgerEntry } from '../../../../core/services/stock.service';
+import { MoveHistoryService, RefItem } from '../../../../core/services/move-history.service';
 
-export type MoveStatus = 'Ready' | 'Done' | 'Waiting' | 'Cancelled';
+export type MoveStatus = 'Ready' | 'Done' | 'Waiting' | 'Cancelled' | 'Draft' | 'Picking' | 'Packing';
 
 export interface StockMove {
-  id: string;
+  id: string; // Internal unique ID for frontend iteration
   reference: string;
   date: string;
   contact: string;
@@ -22,13 +22,14 @@ export interface StockMove {
 interface NewMoveForm {
   type: 'IN' | 'OUT' | 'INTERNAL';
   date: string;
-  contact: string;
-  from: string;
-  to: string;
-  product: string;
+  warehouse: number | null;
+  contact: number | null;
+  from: number | null;
+  to: number | null;
+  product: number | null;
   quantity: number | null;
   unit: string;
-  status: MoveStatus;
+  status: string;
 }
 
 @Component({
@@ -38,92 +39,126 @@ interface NewMoveForm {
   templateUrl: './move-history.component.html',
 })
 export class MoveHistoryComponent implements OnInit {
+  private svc = inject(MoveHistoryService);
+
   viewMode = signal<'list' | 'kanban'>('list');
   searchQuery = signal('');
-  statusFilter = signal<MoveStatus | 'All'>('All');
+  statusFilter = signal<string>('All');
   isDrawerOpen = signal(false);
   formErrors = signal<Partial<Record<keyof NewMoveForm, string>>>({});
   didSubmit = signal(false);
-  loading = signal(true);
-  apiError = signal('');
+  isLoading = signal(false);
 
-  readonly statuses: (MoveStatus | 'All')[] = ['All', 'Ready', 'Done', 'Waiting', 'Cancelled'];
-  readonly moveStatuses: MoveStatus[] = ['Ready', 'Waiting', 'Done', 'Cancelled'];
-  readonly locations = ['Vendor', 'WH/Stock1', 'WH/Stock2', 'WH/Stock3', 'WH/Output', 'WH/Input'];
+  readonly statuses = ['All', 'Ready', 'Done', 'Waiting', 'Cancelled', 'Draft', 'Picking', 'Packing'];
+  readonly moveStatuses = ['draft', 'picking', 'packing', 'ready', 'waiting', 'done', 'cancelled'];
   readonly units = ['Units', 'kg', 'Litres', 'Boxes', 'Pallets'];
 
   moves = signal<StockMove[]>([]);
 
+  products = signal<RefItem[]>([]);
+  locations = signal<RefItem[]>([]);
+  suppliers = signal<RefItem[]>([]);
+  customers = signal<RefItem[]>([]);
+  warehouses = signal<RefItem[]>([]);
+
   newMove: NewMoveForm = this.blankForm();
 
-  constructor(private stockService: StockService) {}
+  ngOnInit() {
+     this.loadReferenceData();
+     this.loadMoves();
+  }
 
-  ngOnInit(): void {
-    this.stockService.getLedger({ limit: 100, page: 1 }).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.moves.set(res.data.map(entry => this.mapEntry(entry)));
+  loadReferenceData() {
+    this.svc.getProducts().subscribe((r: any) => { if(r.success) this.products.set(r.data); });
+    this.svc.getLocations().subscribe((r: any) => { if(r.success) this.locations.set(r.data); });
+    this.svc.getSuppliers().subscribe((r: any) => { if(r.success) this.suppliers.set(r.data); });
+    this.svc.getCustomers().subscribe((r: any) => { if(r.success) this.customers.set(r.data); });
+    this.svc.getWarehouses().subscribe((r: any) => { if(r.success) this.warehouses.set(r.data); });
+  }
+
+  loadMoves() {
+    this.isLoading.set(true);
+    
+    this.svc.getUnifiedMoves().subscribe((details: any[]) => {
+      const allMoves: StockMove[] = [];
+      const prods = Object.fromEntries(this.products().map(p => [p.id, p.name]));
+      const locs = Object.fromEntries(this.locations().map(l => [l.id, l.name]));
+      const supps = Object.fromEntries(this.suppliers().map(s => [s.id, s.name]));
+      const custs = Object.fromEntries(this.customers().map(c => [c.id, c.name]));
+
+      for (const d of details) {
+        if (!d || !d.success || !d.data) continue;
+        const doc = d.data;
+        const items = doc.items || [];
+        
+        for (const item of items) {
+          let type: 'IN'|'OUT'|'INTERNAL' = 'INTERNAL';
+          let ref = '';
+          let contact = '';
+          let from = '';
+          let to = '';
+
+          // Determine type based on fields
+          if (doc.supplier_id) {
+            type = 'IN';
+            ref = `WH/IN/${String(doc.id).padStart(4,'0')}`;
+            contact = supps[doc.supplier_id] || `Supplier ${doc.supplier_id}`;
+            from = 'Vendor';
+            to = 'Warehouse Storage';
+          } else if (doc.customer_id) {
+            type = 'OUT';
+            ref = `WH/OUT/${String(doc.id).padStart(4,'0')}`;
+            contact = custs[doc.customer_id] || `Customer ${doc.customer_id}`;
+            from = 'Warehouse Storage';
+            to = 'Customer';
+          } else if (doc.from_location && doc.to_location) {
+            type = 'INTERNAL';
+            ref = `WH/INT/${String(doc.id).padStart(4,'0')}`;
+            contact = 'Internal';
+            from = locs[doc.from_location] || `Loc ${doc.from_location}`;
+            to = locs[doc.to_location] || `Loc ${doc.to_location}`;
+          }
+
+          allMoves.push({
+            id: crypto.randomUUID(),
+            reference: ref,
+            date: doc.created_at || new Date().toISOString(),
+            contact,
+            from,
+            to,
+            product: prods[item.product_id] || `Product ${item.product_id}`,
+            quantity: item.quantity,
+            unit: 'Units',
+            status: (doc.status as string).charAt(0).toUpperCase() + (doc.status as string).slice(1) as any,
+            type
+          });
         }
-        this.loading.set(false);
-      },
-      error: (err) => {
-        console.error('Move history error:', err);
-        this.apiError.set('Failed to load move history.');
-        this.loading.set(false);
-      },
+      }
+      
+      allMoves.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      this.moves.set(allMoves);
+      this.isLoading.set(false);
     });
-  }
-
-  private mapEntry(entry: LedgerEntry): StockMove {
-    const type = this.mapType(entry.movement_type);
-    const qty = Math.abs(Number(entry.quantity));
-    const pad = String(entry.reference_id).padStart(4, '0');
-
-    const prefixMap: Record<string, string> = {
-      RECEIPT:      'WH/IN',
-      DELIVERY:     'WH/OUT',
-      TRANSFER_IN:  'WH/INT',
-      TRANSFER_OUT: 'WH/INT',
-      ADJUSTMENT:   'WH/ADJ',
-    };
-
-    return {
-      id:        String(entry.id),
-      reference: `${prefixMap[entry.movement_type] ?? 'WH/MOV'}/${pad}`,
-      date:      entry.created_at.split('T')[0],
-      contact:   entry.reference_type,
-      from:      type === 'IN'  ? 'Vendor'              : `Loc-${entry.location_id}`,
-      to:        type === 'OUT' ? 'Customer'             : `Loc-${entry.location_id}`,
-      product:   `Product #${entry.product_id}`,
-      quantity:  qty,
-      unit:      'Units',
-      status:    'Done',
-      type,
-    };
-  }
-
-  private mapType(movementType: LedgerEntry['movement_type']): 'IN' | 'OUT' | 'INTERNAL' {
-    if (movementType === 'RECEIPT')    return 'IN';
-    if (movementType === 'DELIVERY')   return 'OUT';
-    return 'INTERNAL';
   }
 
   blankForm(): NewMoveForm {
     return {
       type: 'IN',
       date: new Date().toISOString().split('T')[0],
-      contact: '',
-      from: 'Vendor',
-      to: 'WH/Stock1',
-      product: '',
+      warehouse: null,
+      contact: null,
+      from: null,
+      to: null,
+      product: null,
       quantity: null,
       unit: 'Units',
-      status: 'Ready',
+      status: 'draft',
     };
   }
 
   openDrawer() {
     this.newMove = this.blankForm();
+    if(this.warehouses().length > 0) this.newMove.warehouse = this.warehouses()[0].id;
     this.formErrors.set({});
     this.didSubmit.set(false);
     this.isDrawerOpen.set(true);
@@ -133,52 +168,49 @@ export class MoveHistoryComponent implements OnInit {
     this.isDrawerOpen.set(false);
   }
 
-  private generateRef(type: 'IN' | 'OUT' | 'INTERNAL'): string {
-    const prefix = type === 'IN' ? 'WH/IN' : type === 'OUT' ? 'WH/OUT' : 'WH/INT';
-    const count = this.moves().filter(m => m.reference.startsWith(prefix)).length + 1;
-    return `${prefix}/${String(count).padStart(4, '0')}`;
-  }
-
   validate(): boolean {
     const e: Partial<Record<keyof NewMoveForm, string>> = {};
-    if (!this.newMove.contact.trim())     e.contact  = 'Contact is required';
-    if (!this.newMove.product.trim())     e.product  = 'Product is required';
+    if (this.newMove.type !== 'INTERNAL' && !this.newMove.warehouse) e.warehouse = 'Warehouse is required';
+    if (this.newMove.type !== 'INTERNAL' && !this.newMove.contact) e.contact = 'Contact is required';
+    if (this.newMove.type === 'INTERNAL') {
+      if (!this.newMove.from) e.from = 'Source location is required';
+      if (!this.newMove.to) e.to = 'Destination location is required';
+      if (this.newMove.from === this.newMove.to) e.to = 'Origin and destination must differ';
+    }
+    if (!this.newMove.product) e.product = 'Product is required';
     if (!this.newMove.quantity || this.newMove.quantity <= 0) e.quantity = 'Enter a valid quantity';
-    if (this.newMove.from === this.newMove.to) e.to   = 'Origin and destination must differ';
+    
     this.formErrors.set(e);
     return Object.keys(e).length === 0;
   }
 
   onTypeChange() {
-    if (this.newMove.type === 'IN') {
-      this.newMove.from = 'Vendor'; this.newMove.to = 'WH/Stock1';
-    } else if (this.newMove.type === 'OUT') {
-      this.newMove.from = 'WH/Stock1'; this.newMove.to = 'Vendor';
-    } else {
-      this.newMove.from = 'WH/Stock1'; this.newMove.to = 'WH/Stock2';
-    }
+    this.newMove.contact = null;
+    this.newMove.from = null;
+    this.newMove.to = null;
   }
 
   saveMove() {
     this.didSubmit.set(true);
     if (!this.validate()) return;
-
-    const move: StockMove = {
-      id:        crypto.randomUUID(),
-      reference: this.generateRef(this.newMove.type),
-      date:      this.newMove.date,
-      contact:   this.newMove.contact.trim(),
-      from:      this.newMove.from,
-      to:        this.newMove.to,
-      product:   this.newMove.product.trim(),
-      quantity:  this.newMove.quantity!,
-      unit:      this.newMove.unit,
-      status:    this.newMove.status,
-      type:      this.newMove.type,
-    };
-
-    this.moves.update(list => [move, ...list]);
-    this.closeDrawer();
+    
+    let req;
+    
+    // Determine API based on type
+    if (this.newMove.type === 'IN') {
+      req = this.svc.createReceipt(this.newMove.contact!, this.newMove.warehouse!, this.newMove.product!, this.newMove.quantity!);
+    } else if (this.newMove.type === 'OUT') {
+      req = this.svc.createDelivery(this.newMove.contact!, this.newMove.warehouse!, this.newMove.product!, this.newMove.quantity!);
+    } else if (this.newMove.type === 'INTERNAL') {
+      req = this.svc.createTransfer(this.newMove.from!, this.newMove.to!, this.newMove.product!, this.newMove.quantity!);
+    }
+    
+    if(req) {
+      req.subscribe({
+        next: () => { this.closeDrawer(); this.loadMoves(); },
+        error: (err: any) => console.error(err)
+      });
+    }
   }
 
   err(field: keyof NewMoveForm): string {
@@ -189,18 +221,19 @@ export class MoveHistoryComponent implements OnInit {
     const q = this.searchQuery().toLowerCase();
     const s = this.statusFilter();
     return this.moves().filter(m => {
-      const matchesSearch = !q ||
-        m.reference.toLowerCase().includes(q) ||
-        m.contact.toLowerCase().includes(q) ||
-        m.product.toLowerCase().includes(q);
-      const matchesStatus = s === 'All' || m.status === s;
+      const matchesSearch = !q || m.reference.toLowerCase().includes(q) || m.contact.toLowerCase().includes(q) || m.product.toLowerCase().includes(q);
+      const matchesStatus = s === 'All' || m.status.toLowerCase() === s.toLowerCase();
       return matchesSearch && matchesStatus;
     });
   });
 
   kanbanGroups = computed(() => {
     const groups: Record<string, StockMove[]> = { Ready: [], Waiting: [], Done: [], Cancelled: [] };
-    for (const m of this.filteredMoves()) { groups[m.status]?.push(m); }
+    // Only pre-define these keys, others will be added dynamically if needed
+    for (const m of this.filteredMoves()) { 
+      if (!groups[m.status]) groups[m.status] = [];
+      groups[m.status].push(m); 
+    }
     return Object.entries(groups).map(([status, items]) => ({ status: status as MoveStatus, items }));
   });
 
@@ -216,24 +249,20 @@ export class MoveHistoryComponent implements OnInit {
     return 'text-indigo-600 dark:text-indigo-400 font-semibold';
   }
 
-  statusBadge(status: MoveStatus): string {
-    const map: Record<MoveStatus, string> = {
-      'Ready':     'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
-      'Done':      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-      'Waiting':   'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-      'Cancelled': 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
-    };
-    return map[status];
+  statusBadge(status: string): string {
+    const s = status.toLowerCase();
+    if (s === 'ready' || s === 'picking' || s === 'packing') return 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300';
+    if (s === 'done') return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300';
+    if (s === 'waiting' || s === 'draft') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+    return 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400';
   }
 
-  kanbanCardBorder(status: MoveStatus): string {
-    const map: Record<MoveStatus, string> = {
-      'Ready':     'border-t-4 border-t-sky-400',
-      'Done':      'border-t-4 border-t-emerald-400',
-      'Waiting':   'border-t-4 border-t-amber-400',
-      'Cancelled': 'border-t-4 border-t-slate-300',
-    };
-    return map[status];
+  kanbanCardBorder(status: string): string {
+    const s = status.toLowerCase();
+    if (s === 'ready' || s === 'picking' || s === 'packing') return 'border-t-4 border-t-sky-400';
+    if (s === 'done') return 'border-t-4 border-t-emerald-400';
+    if (s === 'waiting' || s === 'draft') return 'border-t-4 border-t-amber-400';
+    return 'border-t-4 border-t-slate-300';
   }
 
   typeIcon(type: StockMove['type']): string {
@@ -249,6 +278,7 @@ export class MoveHistoryComponent implements OnInit {
   }
 
   formatDate(d: string): string {
+    if (!d) return '';
     return new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
