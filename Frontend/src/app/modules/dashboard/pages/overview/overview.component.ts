@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DashboardService } from '../../../../core/services/dashboard.service';
+import { RouterModule } from '@angular/router';
 
 export interface KpiCard {
   title: string;
@@ -19,7 +20,7 @@ export interface KpiCard {
 @Component({
   selector: 'app-overview',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterModule],
   templateUrl: './overview.component.html',
 })
 export class OverviewComponent implements OnInit {
@@ -85,7 +86,7 @@ export class OverviewComponent implements OnInit {
     },
   ];
 
-  constructor(private dashboardService: DashboardService) {}
+  constructor(private dashboardService: DashboardService) { }
 
   ngOnInit(): void {
     this.dashboardService.getDashboardData().subscribe({
@@ -95,8 +96,8 @@ export class OverviewComponent implements OnInit {
           this.kpis[0].value = kpis.totalProducts;
           this.kpis[1].value = kpis.lowStockCount + kpis.outOfStockCount;
           this.kpis[1].detail = [
-            { label: 'Low Stock',    value: kpis.lowStockCount,   color: 'text-amber-500' },
-            { label: 'Out of Stock', value: kpis.outOfStockCount, color: 'text-rose-500'  },
+            { label: 'Low Stock', value: kpis.lowStockCount, color: 'text-amber-500' },
+            { label: 'Out of Stock', value: kpis.outOfStockCount, color: 'text-rose-500' },
           ];
           this.kpis[2].value = kpis.pendingReceipts;
           this.kpis[3].value = kpis.pendingDeliveries;

@@ -49,10 +49,14 @@ export class LoginComponent {
     const { loginId, password } = this.loginForm.value;
 
     this.authService.login({ loginId, password }).subscribe({
-      next: () => {
-        this.authService.setLoggedIn(true);
+      next: (res) => {
         this.isLoading.set(false);
-        this.router.navigate(['/dashboard']);
+        // If the service's tap succeeded, we can navigate safely
+        if (this.authService.isLoggedIn()) {
+          this.router.navigate(['/dashboard']);
+        } else {
+          this.errorMessage.set(res.message || 'Login failed. Missing session data.');
+        }
       },
       error: () => {
         this.errorMessage.set('Invalid Login ID or Password. Please try again.');

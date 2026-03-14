@@ -40,8 +40,12 @@ export class AuthService {
   login(data: LoginData): Observable<any> {
     return this.http.post<any>(`${this.API_URL}/login`, data).pipe(
       tap(res => {
-        if (res.success && res.data && res.data.token) {
+        // Robust check for res.success and nested data.token
+        if (res && res.success && res.data?.token) {
           this.setLoggedIn(true, res.data.token);
+        } else {
+          // If login call finishes but token is missing, ensure we aren't "half-logged-in"
+          this.setLoggedIn(false);
         }
       })
     );
@@ -91,7 +95,8 @@ export class AuthService {
   }
 
   checkAuth(): boolean {
-    return !!localStorage.getItem('sf_token');
+    const token = localStorage.getItem('sf_token');
+    return !!token;
   }
 
   getCurrentUser(): CurrentUser | null {

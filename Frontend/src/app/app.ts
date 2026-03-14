@@ -2,11 +2,14 @@ import { Component } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { ThemeService } from './core/services/theme.service';
 
+import { CommonModule } from '@angular/common';
+
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
-  template: '<router-outlet />',
+  imports: [RouterOutlet, CommonModule],
+  templateUrl: './app.html',
+  styleUrl: './app.css'
 })
 export class App {
   // Inject so the effect runs at app startup; the service is providedIn root.
