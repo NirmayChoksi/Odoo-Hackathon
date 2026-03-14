@@ -1,0 +1,82 @@
+<div class="min-h-screen flex items-center justify-center" style="background:#f3f4f6;font-family:'Inter',sans-serif">
+  <div style="width:100%;max-width:420px;padding:1.5rem">
+
+    <!-- Logo -->
+    <div style="text-align:center;margin-bottom:1.75rem">
+      <div style="width:2.25rem;height:2.25rem;background:#4f46e5;border-radius:0.5rem;display:flex;align-items:center;justify-content:center;margin:0 auto 0.625rem">
+        <svg style="width:1.125rem;height:1.125rem" fill="none" stroke="white" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.5 7.27783L12 12.0001M12 12.0001L3.49997 7.27783M12 12.0001L12 21.5001M20.5 16.7222L12 21.5001L3.5 16.7222V7.27783L12 2.50006L20.5 7.27783Z"/>
+        </svg>
+      </div>
+      <div style="font-size:1rem;font-weight:700;color:#111827">StockFlow IMS</div>
+    </div>
+
+    <!-- Card -->
+    <div style="background:white;border:1px solid #e5e7eb;border-radius:0.75rem;padding:2rem;box-shadow:0 1px 3px rgba(0,0,0,0.07)">
+
+      <h2 style="font-size:1.2rem;font-weight:700;color:#111827;margin:0 0 0.25rem">Enter OTP</h2>
+      <p style="font-size:0.8rem;color:#6b7280;margin:0 0 1.5rem">Enter the 6-digit code sent to your email</p>
+
+      <!-- Error -->
+      @if (errorMessage()) {
+        <div style="display:flex;align-items:center;gap:0.5rem;padding:0.625rem 0.875rem;background:#fef2f2;border:1px solid #fecaca;border-radius:0.5rem;margin-bottom:1rem">
+          <svg style="width:0.875rem;height:0.875rem;flex-shrink:0;color:#dc2626" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span style="font-size:0.8rem;color:#dc2626">{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <!-- OTP boxes -->
+      <div style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:1.5rem;margin-left:auto;margin-right:auto" (paste)="onPaste($event)">
+        @for (d of digits(); track $index; let i = $index) {
+          <input
+            #otpBox
+            type="text"
+            inputmode="numeric"
+            maxlength="1"
+            [value]="d"
+            (keyup)="onKeyUp($event, i)"
+            (focus)="$any($event.target).select()"
+            class="otp-input"
+            [class.filled]="d !== ''"
+          />
+        }
+      </div>
+
+      <!-- Verify button -->
+      <button (click)="onSubmit()" [disabled]="isLoading()" class="btn-primary" style="margin-bottom:1rem">
+        @if (isLoading()) {
+          <svg class="spinner" style="width:1rem;height:1rem" fill="none" viewBox="0 0 24 24">
+            <circle style="opacity:.25" cx="12" cy="12" r="10" stroke="white" stroke-width="4"></circle>
+            <path style="opacity:.85" fill="white" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+          </svg>
+          Verifying...
+        } @else {
+          Verify OTP
+        }
+      </button>
+
+      <!-- Resend -->
+      <div style="text-align:center;margin-bottom:1rem">
+        @if (!canResend()) {
+          <p style="font-size:0.8rem;color:#9ca3af;margin:0">
+            Resend OTP in
+            <span style="color:#4f46e5;font-weight:600;font-variant-numeric:tabular-nums">
+              0:{{ countdown() < 10 ? '0' + countdown() : countdown() }}
+            </span>
+          </p>
+        } @else {
+          <button (click)="resendOtp()"
+            style="font-size:0.8rem;color:#4f46e5;font-weight:600;background:none;border:none;cursor:pointer;padding:0;text-decoration:underline">
+            Resend OTP
+          </button>
+        }
+      </div>
+
+      <p style="text-align:center;font-size:0.8rem;color:#6b7280;margin:0">
+        <a routerLink="/auth/forgot-password" style="color:#4f46e5;font-weight:500;text-decoration:none">Change email address</a>
+      </p>
+    </div>
+  </div>
+</div>

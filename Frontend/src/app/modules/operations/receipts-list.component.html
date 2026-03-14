@@ -1,0 +1,152 @@
+<div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+  
+  <!-- Header Bar -->
+  <div class="p-4 border-b border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+    <div class="flex items-center gap-4 w-full sm:w-auto">
+      <a routerLink="/operations/receipt/new" class="btn-primary" style="width: auto; padding: 0.5rem 1rem;">
+        New
+      </a>
+      <h2 class="text-xl font-bold text-slate-800 dark:text-white">Receipts</h2>
+    </div>
+
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+      <!-- Search -->
+      <div class="relative flex-1 sm:flex-none sm:w-72">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"></path>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search Reference or Contact..."
+          [ngModel]="searchQuery()"
+          (input)="updateSearch($event)"
+          class="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+        >
+      </div>
+      
+      <!-- View Toggles -->
+      <div class="flex bg-slate-100 dark:bg-slate-900 rounded-lg p-1 border border-slate-200 dark:border-slate-700 shrink-0">
+        <button 
+          (click)="setViewMode('list')"
+          class="p-1.5 rounded shadow-sm transition-colors"
+          [ngClass]="{'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400': viewMode() === 'list', 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200': viewMode() !== 'list'}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+          </svg>
+        </button>
+        <button 
+          (click)="setViewMode('kanban')"
+          class="p-1.5 rounded transition-colors"
+          [ngClass]="{'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm': viewMode() === 'kanban', 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200': viewMode() !== 'kanban'}">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  @if (viewMode() === 'list') {
+  <!-- Data Table -->
+  <div class="overflow-x-auto">
+    <table class="w-full text-left border-collapse">
+      <thead>
+        <tr class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 text-sm">
+          <th class="px-6 py-3 font-semibold">Reference</th>
+          <th class="px-6 py-3 font-semibold">From</th>
+          <th class="px-6 py-3 font-semibold">To</th>
+          <th class="px-6 py-3 font-semibold">Contact</th>
+          <th class="px-6 py-3 font-semibold">Schedule Date</th>
+          <th class="px-6 py-3 font-semibold">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+        @for (receipt of filteredReceipts; track receipt.id) {
+          <tr 
+            class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors cursor-pointer"
+            [routerLink]="['/operations/receipt', receipt.id]">
+            <td class="px-6 py-4 text-indigo-600 dark:text-indigo-400 font-medium">{{ receipt.reference }}</td>
+            <td class="px-6 py-4 text-slate-700 dark:text-slate-300">{{ receipt.from }}</td>
+            <td class="px-6 py-4 text-slate-700 dark:text-slate-300">{{ receipt.to }}</td>
+            <td class="px-6 py-4 text-slate-700 dark:text-slate-300">{{ receipt.contact }}</td>
+            <td class="px-6 py-4 text-slate-700 dark:text-slate-300">{{ receipt.scheduleDate }}</td>
+            <td class="px-6 py-4">
+              <span 
+                class="px-2.5 py-1 rounded-full text-xs font-semibold"
+                [ngClass]="{
+                  'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300': receipt.status === 'Draft',
+                  'bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800': receipt.status === 'Ready',
+                  'bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800': receipt.status === 'Done'
+                }">
+                {{ receipt.status }}
+              </span>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="6" class="px-6 py-8 text-center text-slate-500 dark:text-slate-400">
+              No receipts found.
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  } @else {
+  <!-- Kanban View -->
+  <div class="flex items-start gap-4 p-6 overflow-x-auto min-h-[500px] bg-slate-50 dark:bg-slate-900/30">
+    
+    <!-- Draft Column -->
+    <div class="flex-shrink-0 w-80 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl p-4 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-slate-700 dark:text-slate-300">Draft</h3>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">{{ kanbanColumns.draft.length }}</span>
+      </div>
+      @for (receipt of kanbanColumns.draft; track receipt.id) {
+        <div [routerLink]="['/operations/receipt', receipt.id]" class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-indigo-400 transition-colors">
+          <div class="flex justify-between items-start mb-2">
+            <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ receipt.reference }}</span>
+          </div>
+          <div class="text-sm text-slate-600 dark:text-slate-400 mb-1"><span class="font-medium text-slate-700 dark:text-slate-300">Contact:</span> {{ receipt.contact }}</div>
+          <div class="text-sm text-slate-600 dark:text-slate-400"><span class="font-medium text-slate-700 dark:text-slate-300">Date:</span> {{ receipt.scheduleDate || 'Unscheduled' }}</div>
+        </div>
+      }
+    </div>
+
+    <!-- Ready Column -->
+    <div class="flex-shrink-0 w-80 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-blue-700 dark:text-blue-400">Ready</h3>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">{{ kanbanColumns.ready.length }}</span>
+      </div>
+      @for (receipt of kanbanColumns.ready; track receipt.id) {
+        <div [routerLink]="['/operations/receipt', receipt.id]" class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-blue-200 dark:border-blue-800 cursor-pointer hover:border-blue-400 transition-colors">
+          <div class="flex justify-between items-start mb-2">
+            <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ receipt.reference }}</span>
+          </div>
+          <div class="text-sm text-slate-600 dark:text-slate-400 mb-1"><span class="font-medium text-slate-700 dark:text-slate-300">Contact:</span> {{ receipt.contact }}</div>
+          <div class="text-sm text-slate-600 dark:text-slate-400"><span class="font-medium text-slate-700 dark:text-slate-300">Date:</span> {{ receipt.scheduleDate }}</div>
+        </div>
+      }
+    </div>
+
+    <!-- Done Column -->
+    <div class="flex-shrink-0 w-80 bg-emerald-50/50 dark:bg-emerald-900/10 rounded-xl p-4 flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-emerald-700 dark:text-emerald-400">Done</h3>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400">{{ kanbanColumns.done.length }}</span>
+      </div>
+      @for (receipt of kanbanColumns.done; track receipt.id) {
+        <div [routerLink]="['/operations/receipt', receipt.id]" class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-emerald-200 dark:border-emerald-800 cursor-pointer hover:border-emerald-400 transition-colors opacity-75 hover:opacity-100">
+          <div class="flex justify-between items-start mb-2">
+            <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ receipt.reference }}</span>
+          </div>
+          <div class="text-sm text-slate-600 dark:text-slate-400 mb-1"><span class="font-medium text-slate-700 dark:text-slate-300">Contact:</span> {{ receipt.contact }}</div>
+          <div class="text-sm text-slate-600 dark:text-slate-400"><span class="font-medium text-slate-700 dark:text-slate-300">Date:</span> {{ receipt.scheduleDate }}</div>
+        </div>
+      }
+    </div>
+
+  </div>
+  }
+</div>

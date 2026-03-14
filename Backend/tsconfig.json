@@ -1,12 +1,15 @@
 {
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "rootDir": "./src",
     "outDir": "./dist",
-    "module": "commonjs",
-    "target": "es2024",
-    "strict": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "esModuleInterop": true
+    "strict": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
