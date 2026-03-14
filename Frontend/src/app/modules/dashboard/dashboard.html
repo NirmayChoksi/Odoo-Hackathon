@@ -18,7 +18,19 @@
     <!-- Status badge -->
     <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-50 border border-emerald-200 mb-8">
       <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-      <span class="text-emerald-700 text-sm font-medium">Authentication Successful</span>
+      <span class="text-emerald-700 text-sm font-medium">
+        @if (loading) {
+          Loading Dashboard Data...
+        } @else if (error) {
+          {{ error }}
+        } @else if (dashboardData) {
+          Total Products: {{ dashboardData.data.kpis.totalProducts }} | 
+          Low Stock: {{ dashboardData.data.kpis.lowStockCount }} | 
+          Pending Receipts: {{ dashboardData.data.kpis.pendingReceipts }}
+        } @else {
+          Authentication Successful
+        }
+      </span>
     </div>
 
     <div class="flex gap-3 justify-center">

@@ -27,13 +27,13 @@ export const DASHBOARD_ROUTES: Routes = [
             (m) => m.SettingsComponent
           ),
       },
-      {
-        path: 'stock',
-        loadComponent: () =>
-          import('./pages/stock/stock.component').then(
-            (m) => m.StockComponent
-          ),
-      },
+      // {
+      //   path: 'stock',
+      //   loadComponent: () =>
+      //     import('./pages/stock/stock.component').then(
+      //       (m) => m.StockComponent
+      //     ),
+      // },
     ],
   },
 ];

@@ -1,6 +1,7 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { StockService, LedgerEntry } from '../../../../core/services/stock.service';
 
 export type MoveStatus = 'Ready' | 'Done' | 'Waiting' | 'Cancelled';
 
@@ -36,31 +37,76 @@ interface NewMoveForm {
   imports: [CommonModule, FormsModule],
   templateUrl: './move-history.component.html',
 })
-export class MoveHistoryComponent {
+export class MoveHistoryComponent implements OnInit {
   viewMode = signal<'list' | 'kanban'>('list');
   searchQuery = signal('');
   statusFilter = signal<MoveStatus | 'All'>('All');
   isDrawerOpen = signal(false);
   formErrors = signal<Partial<Record<keyof NewMoveForm, string>>>({});
   didSubmit = signal(false);
+  loading = signal(true);
+  apiError = signal('');
 
   readonly statuses: (MoveStatus | 'All')[] = ['All', 'Ready', 'Done', 'Waiting', 'Cancelled'];
   readonly moveStatuses: MoveStatus[] = ['Ready', 'Waiting', 'Done', 'Cancelled'];
   readonly locations = ['Vendor', 'WH/Stock1', 'WH/Stock2', 'WH/Stock3', 'WH/Output', 'WH/Input'];
   readonly units = ['Units', 'kg', 'Litres', 'Boxes', 'Pallets'];
 
-  moves = signal<StockMove[]>([
-    { id: '1', reference: 'WH/IN/0001',  date: '2001-12-01', contact: 'Azure Interior', from: 'Vendor',    to: 'WH/Stock1', product: 'Office Chair',    quantity: 10, unit: 'Units', status: 'Ready',   type: 'IN' },
-    { id: '2', reference: 'WH/IN/0001',  date: '2001-12-01', contact: 'Azure Interior', from: 'Vendor',    to: 'WH/Stock1', product: 'Office Desk',     quantity: 5,  unit: 'Units', status: 'Ready',   type: 'IN' },
-    { id: '3', reference: 'WH/OUT/0002', date: '2001-12-01', contact: 'Azure Interior', from: 'WH/Stock1', to: 'Vendor',    product: 'Wooden Chair',    quantity: 8,  unit: 'Units', status: 'Ready',   type: 'OUT' },
-    { id: '4', reference: 'WH/OUT/0003', date: '2001-12-05', contact: 'Deco Addict',    from: 'WH/Stock2', to: 'Vendor',    product: 'Laptop Stand',    quantity: 3,  unit: 'Units', status: 'Done',    type: 'OUT' },
-    { id: '5', reference: 'WH/INT/0004', date: '2001-12-08', contact: 'Deco Addict',    from: 'WH/Stock1', to: 'WH/Stock2', product: 'Monitor',         quantity: 2,  unit: 'Units', status: 'Waiting', type: 'INTERNAL' },
-    { id: '6', reference: 'WH/IN/0005',  date: '2001-12-10', contact: 'Lumber Inc',     from: 'Vendor',    to: 'WH/Stock1', product: 'Ergonomic Chair', quantity: 15, unit: 'Units', status: 'Ready',   type: 'IN' },
-    { id: '7', reference: 'WH/OUT/0006', date: '2001-12-12', contact: 'Lumber Inc',     from: 'WH/Stock2', to: 'Vendor',    product: 'Standing Desk',   quantity: 4,  unit: 'Units', status: 'Done',    type: 'OUT' },
-    { id: '8', reference: 'WH/OUT/0006', date: '2001-12-12', contact: 'Lumber Inc',     from: 'WH/Stock2', to: 'Vendor',    product: 'Cable Tray',      quantity: 12, unit: 'Units', status: 'Done',    type: 'OUT' },
-  ]);
+  moves = signal<StockMove[]>([]);
 
   newMove: NewMoveForm = this.blankForm();
+
+  constructor(private stockService: StockService) {}
+
+  ngOnInit(): void {
+    this.stockService.getLedger({ limit: 100, page: 1 }).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.moves.set(res.data.map(entry => this.mapEntry(entry)));
+        }
+        this.loading.set(false);
+      },
+      error: (err) => {
+        console.error('Move history error:', err);
+        this.apiError.set('Failed to load move history.');
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private mapEntry(entry: LedgerEntry): StockMove {
+    const type = this.mapType(entry.movement_type);
+    const qty = Math.abs(Number(entry.quantity));
+    const pad = String(entry.reference_id).padStart(4, '0');
+
+    const prefixMap: Record<string, string> = {
+      RECEIPT:      'WH/IN',
+      DELIVERY:     'WH/OUT',
+      TRANSFER_IN:  'WH/INT',
+      TRANSFER_OUT: 'WH/INT',
+      ADJUSTMENT:   'WH/ADJ',
+    };
+
+    return {
+      id:        String(entry.id),
+      reference: `${prefixMap[entry.movement_type] ?? 'WH/MOV'}/${pad}`,
+      date:      entry.created_at.split('T')[0],
+      contact:   entry.reference_type,
+      from:      type === 'IN'  ? 'Vendor'              : `Loc-${entry.location_id}`,
+      to:        type === 'OUT' ? 'Customer'             : `Loc-${entry.location_id}`,
+      product:   `Product #${entry.product_id}`,
+      quantity:  qty,
+      unit:      'Units',
+      status:    'Done',
+      type,
+    };
+  }
+
+  private mapType(movementType: LedgerEntry['movement_type']): 'IN' | 'OUT' | 'INTERNAL' {
+    if (movementType === 'RECEIPT')    return 'IN';
+    if (movementType === 'DELIVERY')   return 'OUT';
+    return 'INTERNAL';
+  }
 
   blankForm(): NewMoveForm {
     return {
@@ -95,16 +141,15 @@ export class MoveHistoryComponent {
 
   validate(): boolean {
     const e: Partial<Record<keyof NewMoveForm, string>> = {};
-    if (!this.newMove.contact.trim())      e.contact = 'Contact is required';
-    if (!this.newMove.product.trim())      e.product = 'Product is required';
+    if (!this.newMove.contact.trim())     e.contact  = 'Contact is required';
+    if (!this.newMove.product.trim())     e.product  = 'Product is required';
     if (!this.newMove.quantity || this.newMove.quantity <= 0) e.quantity = 'Enter a valid quantity';
-    if (this.newMove.from === this.newMove.to)  e.to = 'Origin and destination must differ';
+    if (this.newMove.from === this.newMove.to) e.to   = 'Origin and destination must differ';
     this.formErrors.set(e);
     return Object.keys(e).length === 0;
   }
 
   onTypeChange() {
-    // Auto-set sensible defaults when type changes
     if (this.newMove.type === 'IN') {
       this.newMove.from = 'Vendor'; this.newMove.to = 'WH/Stock1';
     } else if (this.newMove.type === 'OUT') {
@@ -119,17 +164,17 @@ export class MoveHistoryComponent {
     if (!this.validate()) return;
 
     const move: StockMove = {
-      id: crypto.randomUUID(),
+      id:        crypto.randomUUID(),
       reference: this.generateRef(this.newMove.type),
-      date: this.newMove.date,
-      contact: this.newMove.contact.trim(),
-      from: this.newMove.from,
-      to: this.newMove.to,
-      product: this.newMove.product.trim(),
-      quantity: this.newMove.quantity!,
-      unit: this.newMove.unit,
-      status: this.newMove.status,
-      type: this.newMove.type,
+      date:      this.newMove.date,
+      contact:   this.newMove.contact.trim(),
+      from:      this.newMove.from,
+      to:        this.newMove.to,
+      product:   this.newMove.product.trim(),
+      quantity:  this.newMove.quantity!,
+      unit:      this.newMove.unit,
+      status:    this.newMove.status,
+      type:      this.newMove.type,
     };
 
     this.moves.update(list => [move, ...list]);
@@ -140,12 +185,14 @@ export class MoveHistoryComponent {
     return this.formErrors()[field] ?? '';
   }
 
-  /* ── Existing helpers ── */
   filteredMoves = computed(() => {
     const q = this.searchQuery().toLowerCase();
     const s = this.statusFilter();
     return this.moves().filter(m => {
-      const matchesSearch = !q || m.reference.toLowerCase().includes(q) || m.contact.toLowerCase().includes(q) || m.product.toLowerCase().includes(q);
+      const matchesSearch = !q ||
+        m.reference.toLowerCase().includes(q) ||
+        m.contact.toLowerCase().includes(q) ||
+        m.product.toLowerCase().includes(q);
       const matchesStatus = s === 'All' || m.status === s;
       return matchesSearch && matchesStatus;
     });
@@ -158,8 +205,8 @@ export class MoveHistoryComponent {
   });
 
   rowClass(move: StockMove): string {
-    if (move.type === 'IN')      return 'border-l-4 border-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/10';
-    if (move.type === 'OUT')     return 'border-l-4 border-rose-400 bg-rose-50/30 dark:bg-rose-900/10';
+    if (move.type === 'IN')  return 'border-l-4 border-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/10';
+    if (move.type === 'OUT') return 'border-l-4 border-rose-400 bg-rose-50/30 dark:bg-rose-900/10';
     return 'border-l-4 border-indigo-300 bg-indigo-50/20 dark:bg-indigo-900/10';
   }
 
@@ -190,8 +237,8 @@ export class MoveHistoryComponent {
   }
 
   typeIcon(type: StockMove['type']): string {
-    if (type === 'IN')   return 'M3 16l4-4m0 0l4 4m-4-4v12M21 8l-4 4m0 0l-4-4m4 4V4';
-    if (type === 'OUT')  return 'M3 8l4-4m0 0l4 4M7 4v12m14 4l-4-4m0 0l-4 4m4-4V8';
+    if (type === 'IN')  return 'M3 16l4-4m0 0l4 4m-4-4v12M21 8l-4 4m0 0l-4-4m4 4V4';
+    if (type === 'OUT') return 'M3 8l4-4m0 0l4 4M7 4v12m14 4l-4-4m0 0l-4 4m4-4V8';
     return 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4';
   }
 

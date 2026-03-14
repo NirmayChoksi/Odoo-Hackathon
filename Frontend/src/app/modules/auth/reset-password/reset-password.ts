@@ -7,7 +7,7 @@ import {
   ValidationErrors,
   ReactiveFormsModule,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
 function passwordStrengthValidator(control: AbstractControl): ValidationErrors | null {
@@ -24,7 +24,7 @@ function matchValidator(group: AbstractControl): ValidationErrors | null {
 
 @Component({
   selector: 'app-reset-password',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule],
   templateUrl: './reset-password.html',
 })
 export class ResetPasswordComponent {
