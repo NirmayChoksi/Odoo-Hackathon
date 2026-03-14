@@ -12,9 +12,17 @@ import { ThemeService } from '../../../../core/services/theme.service';
 export class TopNavComponent {
   isOperationsOpen = signal(false);
   isMobileMenuOpen = signal(false);
+  isProfileOpen    = signal(false);
 
   constructor(public theme: ThemeService) {}
 
   toggleOperations() { this.isOperationsOpen.update(v => !v); }
   toggleMobileMenu()  { this.isMobileMenuOpen.update(v => !v); }
+  toggleProfile()     { this.isProfileOpen.update(v => !v); }
+
+  logout() {
+    console.log('Logging out...');
+    // Real implementation would clear tokens and redirect to login
+    window.location.href = '/auth/login';
+  }
 }

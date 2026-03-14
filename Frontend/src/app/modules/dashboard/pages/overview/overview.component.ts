@@ -36,7 +36,7 @@ export class OverviewComponent implements OnInit {
       iconColor: 'text-indigo-600 dark:text-indigo-400',
       trend: { value: 'Live data', positive: true },
       action: 'View Stock',
-      actionRoute: '/stock',
+      actionRoute: '/dashboard/stock',
     },
     {
       title: 'Low Stock / Out of Stock',
@@ -50,7 +50,7 @@ export class OverviewComponent implements OnInit {
         { label: 'Out of Stock', value: 0, color: 'text-rose-500' },
       ],
       action: 'View Alerts',
-      actionRoute: '/stock/alerts',
+      actionRoute: '/dashboard/stock',
     },
     {
       title: 'Pending Receipts',
