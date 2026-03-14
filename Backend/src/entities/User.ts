@@ -29,7 +29,7 @@ export class User {
   @Column({ default: true, name: "is_active" })
   isActive!: boolean
 
-  @Column({ nullable: true, type: "varchar", length: 6 })
+  @Column({ nullable: true, type: "varchar", length: 255 })
   otp!: string | null
 
   @Column({ nullable: true, type: "datetime", name: "otp_expires_at" })

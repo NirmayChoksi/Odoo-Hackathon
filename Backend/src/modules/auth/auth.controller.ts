@@ -1,6 +1,12 @@
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import type { RegisterDto, LoginDto, ForgotPasswordDto, VerifyOtpDto, ResetPasswordDto } from './auth.model';
+import type {
+  RegisterDto,
+  LoginDto,
+  ForgotPasswordDto,
+  VerifyOtpDto,
+  ResetPasswordDto,
+} from './auth.model';
 
 export const AuthController = {
   async register(req: Request, res: Response) {
@@ -28,6 +34,7 @@ export const AuthController = {
   async forgotPassword(req: Request, res: Response) {
     try {
       const dto: ForgotPasswordDto = req.body;
+      console.log('test');
       const result = await AuthService.forgotPassword(dto);
       res.status(result.success ? 200 : 500).json(result);
     } catch (err) {
